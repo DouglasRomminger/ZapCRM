@@ -186,10 +186,13 @@ export async function evolutionWebhook(fastify: FastifyInstance) {
     async (req: FastifyRequest, reply: FastifyReply) => {
       const payload = req.body as EvolutionWebhookPayload
 
-      // Valida token — Evolution API v2 envia o token da instância no header e no body
-      const apikey = (req.headers['apikey'] as string | undefined) ?? payload.apikey
-      const tokenEsperado = process.env.EVOLUTION_INSTANCE_TOKEN ?? process.env.EVOLUTION_API_KEY
-      if (tokenEsperado && apikey !== tokenEsperado) {
+      // Valida token — Evolution API v2 envia no header e no body
+      const apikey = ((req.headers['apikey'] as string | undefined) ?? payload.apikey ?? '').trim()
+      const tokensValidos = [
+        process.env.EVOLUTION_API_KEY,
+        process.env.EVOLUTION_INSTANCE_TOKEN,
+      ].filter(Boolean).map(t => t!.trim())
+      if (tokensValidos.length > 0 && !tokensValidos.includes(apikey)) {
         return reply.status(401).send({ error: 'Não autorizado' })
       }
 
