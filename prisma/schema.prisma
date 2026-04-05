@@ -1,0 +1,265 @@
+// Schema canônico do ZapCRM
+// NUNCA renomear models, campos ou enums — ver CLAUDE.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum RoleUsuario {
+  OPERADOR
+  SUPERVISOR
+  ADMIN
+}
+
+enum StatusChat {
+  AGUARDANDO
+  EM_ATENDIMENTO
+  AGUARDANDO_CLIENTE
+  ENCERRADO
+}
+
+enum StatusOperador {
+  ONLINE
+  AUSENTE
+  OFFLINE
+}
+
+enum TipoKanban {
+  ATENDIMENTO
+  PIPELINE
+}
+
+enum StatusCampanha {
+  RASCUNHO
+  AGENDADA
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum StatusDisparo {
+  PENDENTE
+  ENVIADO
+  FALHOU
+  BLOQUEADO
+}
+
+enum StatusFatura {
+  PENDENTE
+  PAGO
+  VENCIDO
+  CANCELADO
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model Empresa {
+  id                   String    @id @default(cuid())
+  nome                 String
+  cnpj                 String?   @unique
+  telefone             String?
+  plano                String    @default("basico")
+  ativa                Boolean   @default(true)
+  criadaEm             DateTime  @default(now())
+  atualizadaEm         DateTime  @updatedAt
+
+  // Evolution API
+  instanciaId          String?   // nome da instância: "zapcrmapp-{id}"
+  instanciaStatus      String?   // "open" | "connecting" | "close"
+  whatsappNumero       String?
+  whatsappConectadoEm  DateTime?
+
+  usuarios          Usuario[]
+  contatos          Contato[]
+  chats             Chat[]
+  kanbanColunas     KanbanColuna[]
+  campanhas         Campanha[]
+  faturas           Fatura[]
+  logsSuperAdmin    LogSuperAdmin[]
+}
+
+model Usuario {
+  id             String         @id @default(cuid())
+  empresaId      String
+  nome           String
+  email          String         @unique
+  senhaHash      String
+  role           RoleUsuario    @default(OPERADOR)
+  status         StatusOperador @default(OFFLINE)
+  avatar         String?
+  ativo          Boolean        @default(true)
+  ultimoAtivoEm  DateTime?
+  criadoEm       DateTime       @default(now())
+  atualizadoEm   DateTime       @updatedAt
+
+  empresa        Empresa        @relation(fields: [empresaId], references: [id])
+  chatsAtribuidos Chat[]        @relation("ChatOperador")
+  mensagens      Mensagem[]
+  logsAtividade  LogAtividade[]
+  kanbanHistorico ChatKanbanHistorico[]
+}
+
+model Contato {
+  id           String    @id @default(cuid())
+  empresaId    String
+  nome         String
+  telefone     String
+  email        String?
+  avatar       String?
+  optin        Boolean   @default(false)
+  tags         String[]
+  notas        String?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+
+  empresa      Empresa   @relation(fields: [empresaId], references: [id])
+  chats        Chat[]
+  avaliacoes   Avaliacao[]
+  disparos     DisparoCampanha[]
+
+  @@unique([empresaId, telefone])
+}
+
+model Chat {
+  id              String     @id @default(cuid())
+  empresaId       String
+  contatoId       String
+  operadorId      String?
+  status          StatusChat @default(AGUARDANDO)
+  kanbanColunaId  String?
+  criadoEm        DateTime   @default(now())
+  atualizadoEm    DateTime   @updatedAt
+
+  empresa         Empresa    @relation(fields: [empresaId], references: [id])
+  contato         Contato    @relation(fields: [contatoId], references: [id])
+  operador        Usuario?   @relation("ChatOperador", fields: [operadorId], references: [id])
+  kanbanColuna    KanbanColuna? @relation(fields: [kanbanColunaId], references: [id])
+  mensagens       Mensagem[]
+  logsAtividade   LogAtividade[]
+  kanbanHistorico ChatKanbanHistorico[]
+  avaliacoes      Avaliacao[]
+}
+
+model Mensagem {
+  id         String   @id @default(cuid())
+  chatId     String
+  autorId    String?  // null = contato externo
+  conteudo   String
+  tipo       String   @default("texto") // texto, imagem, audio, documento
+  lida       Boolean  @default(false)
+  criadaEm   DateTime @default(now())
+
+  chat       Chat     @relation(fields: [chatId], references: [id])
+  autor      Usuario? @relation(fields: [autorId], references: [id])
+}
+
+model LogAtividade {
+  id         String   @id @default(cuid())
+  chatId     String
+  usuarioId  String?
+  tipo       String   // ATRIBUICAO, TRANSFERENCIA, ENCERRAMENTO, REABERTURA, KANBAN_MOVIDO
+  descricao  String
+  criadoEm   DateTime @default(now())
+
+  chat       Chat     @relation(fields: [chatId], references: [id])
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+model KanbanColuna {
+  id        String     @id @default(cuid())
+  empresaId String
+  nome      String
+  cor       String
+  ordem     Int
+  tipo      TipoKanban @default(ATENDIMENTO)
+
+  empresa   Empresa    @relation(fields: [empresaId], references: [id])
+  chats     Chat[]
+  historico ChatKanbanHistorico[]
+}
+
+model ChatKanbanHistorico {
+  id               String   @id @default(cuid())
+  chatId           String
+  colunaId         String
+  colunaAnteriorId String?
+  operadorId       String?
+  criadoEm         DateTime @default(now())
+
+  chat             Chat         @relation(fields: [chatId], references: [id])
+  coluna           KanbanColuna @relation(fields: [colunaId], references: [id])
+  operador         Usuario?     @relation(fields: [operadorId], references: [id])
+}
+
+model Avaliacao {
+  id         String   @id @default(cuid())
+  chatId     String
+  contatoId  String
+  nota       Int      // 1-5
+  comentario String?
+  criadaEm   DateTime @default(now())
+
+  chat       Chat     @relation(fields: [chatId], references: [id])
+  contato    Contato  @relation(fields: [contatoId], references: [id])
+}
+
+model Campanha {
+  id           String         @id @default(cuid())
+  empresaId    String
+  nome         String
+  mensagem     String
+  status       StatusCampanha @default(RASCUNHO)
+  agendadaPara DateTime?
+  criadaEm     DateTime       @default(now())
+  atualizadaEm DateTime       @updatedAt
+
+  empresa      Empresa         @relation(fields: [empresaId], references: [id])
+  disparos     DisparoCampanha[]
+}
+
+model DisparoCampanha {
+  id          String        @id @default(cuid())
+  campanhaId  String
+  contatoId   String
+  status      StatusDisparo @default(PENDENTE)
+  enviadoEm   DateTime?
+  erro        String?
+  criadoEm    DateTime      @default(now())
+
+  campanha    Campanha      @relation(fields: [campanhaId], references: [id])
+  contato     Contato       @relation(fields: [contatoId], references: [id])
+}
+
+model Fatura {
+  id           String       @id @default(cuid())
+  empresaId    String
+  valor        Decimal      @db.Decimal(10, 2)
+  status       StatusFatura @default(PENDENTE)
+  vencimentoEm DateTime
+  pagoEm       DateTime?
+  pagarmeId    String?      @unique
+  criadaEm     DateTime     @default(now())
+
+  empresa      Empresa      @relation(fields: [empresaId], references: [id])
+}
+
+model LogSuperAdmin {
+  id         String   @id @default(cuid())
+  adminId    String
+  acao       String
+  empresaId  String?
+  ip         String
+  payload    Json?
+  criadoEm   DateTime @default(now())
+  // IMUTÁVEL — nunca gerar DELETE ou UPDATE nessa tabela
+
+  empresa    Empresa? @relation(fields: [empresaId], references: [id])
+}

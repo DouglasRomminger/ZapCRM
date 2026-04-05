@@ -1,0 +1,27 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format cjs --out-dir dist",
+    "start": "node dist/index.js",
+    "test": "echo \"sem testes ainda\""
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.1.0",
+    "@prisma/client": "^6.0.0",
+    "dotenv": "^17.4.0",
+    "fastify": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.10.2",
+    "prisma": "^6.0.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
