@@ -1,7 +1,9 @@
 import dotenv from 'dotenv'
 import { resolve } from 'path'
-// Carrega o .env da raiz do monorepo (apps/api está 2 níveis abaixo)
-dotenv.config({ path: resolve(process.cwd(), '../../.env') })
+// Carrega o .env apenas em desenvolvimento (produção usa variáveis do ambiente)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: resolve(process.cwd(), '../../.env') })
+}
 
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
