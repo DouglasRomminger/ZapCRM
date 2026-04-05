@@ -8,6 +8,20 @@ import {
   MessageSquare, Clock, CheckCircle2, XCircle, Loader2,
 } from 'lucide-react'
 
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({ mensagem, tipo }: { mensagem: string; tipo: 'success' | 'error' }) {
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl text-white text-[13px] font-medium animate-slide-in"
+      style={{ backgroundColor: tipo === 'success' ? 'var(--color-green)' : 'var(--color-red)' }}
+    >
+      {tipo === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+      {mensagem}
+    </div>
+  )
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const API_URL    = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -57,10 +71,16 @@ async function apiFetch(path: string, options?: RequestInit) {
 // ─── Hook: status + Socket.io ─────────────────────────────────────────────────
 
 function useConexao() {
-  const [status, setStatus]     = useState<StatusData>({ status: 'carregando' })
-  const [qrcode, setQrcode]     = useState<string | null>(null)
+  const [status, setStatus]         = useState<StatusData>({ status: 'carregando' })
+  const [qrcode, setQrcode]         = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
+  const [toast, setToast]           = useState<{ mensagem: string; tipo: 'success' | 'error' } | null>(null)
   const socketRef = useRef<Socket | null>(null)
+
+  const mostrarToast = useCallback((mensagem: string, tipo: 'success' | 'error') => {
+    setToast({ mensagem, tipo })
+    setTimeout(() => setToast(null), 4000)
+  }, [])
 
   const buscarStatus = useCallback(async () => {
     try {
@@ -86,19 +106,36 @@ function useConexao() {
     })
 
     socket.on('conexao_atualizada', (data: { status: StatusConexao; numero?: string; conectadoEm?: string }) => {
-      setStatus({
-        status: data.status,
-        numero: data.numero,
-        conectadoEm: data.conectadoEm,
-      })
-      if (data.status === 'open') setQrcode(null)
+      setStatus({ status: data.status, numero: data.numero, conectadoEm: data.conectadoEm })
+      if (data.status === 'open') {
+        setQrcode(null)
+        mostrarToast('WhatsApp conectado com sucesso!', 'success')
+      }
     })
 
     return () => { socket.disconnect() }
-  }, [])
+  }, [mostrarToast])
 
   // Busca status inicial ao montar
   useEffect(() => { buscarStatus() }, [buscarStatus])
+
+  // Polling de status enquanto conectando (fallback para quando Socket.io não alcança)
+  useEffect(() => {
+    if (status.status !== 'connecting') return
+    const poll = setInterval(async () => {
+      try {
+        const res  = await apiFetch('/api/evolution/status')
+        const data = await res.json() as StatusData
+        if (data.status === 'open') {
+          setStatus(data)
+          setQrcode(null)
+          mostrarToast('WhatsApp conectado com sucesso!', 'success')
+          clearInterval(poll)
+        }
+      } catch { /* ignora */ }
+    }, 3000)
+    return () => clearInterval(poll)
+  }, [status.status, mostrarToast])
 
   // Polling do QR code quando está conectando mas sem QR (webhook não alcança localhost em dev)
   useEffect(() => {
@@ -151,7 +188,7 @@ function useConexao() {
     }
   }, [])
 
-  return { status, qrcode, carregando, iniciarConexao, renovarQr, desconectar }
+  return { status, qrcode, carregando, toast, iniciarConexao, renovarQr, desconectar }
 }
 
 // ─── Estado: aguardando / conectando ─────────────────────────────────────────
@@ -481,13 +518,14 @@ function StatCard({ icon: Icon, iconBg, label, value, sub }: {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function ConexaoPage() {
-  const { status, qrcode, carregando, iniciarConexao, renovarQr, desconectar } = useConexao()
+  const { status, qrcode, carregando, toast, iniciarConexao, renovarQr, desconectar } = useConexao()
 
   const conectado = status.status === 'open'
   const conectando = status.status === 'connecting'
 
   return (
     <AppLayout title="Conexão WhatsApp" subtitle="Gerencie a instância Evolution API da sua empresa">
+      {toast && <Toast mensagem={toast.mensagem} tipo={toast.tipo} />}
       <div className="p-6 space-y-6">
         {/* Cabeçalho com status */}
         <div className="flex items-center gap-3">
