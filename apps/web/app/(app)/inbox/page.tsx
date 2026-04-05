@@ -26,8 +26,8 @@ function useChats() {
   const buscarChats = useCallback(async () => {
     try {
       const res  = await apiFetch('/api/chats')
-      const data = await res.json() as Chat[]
-      setChats(data)
+      const data = await res.json()
+      if (Array.isArray(data)) setChats(data as Chat[])
     } catch { /* mantém estado anterior */ }
     finally { setCarregando(false) }
   }, [])

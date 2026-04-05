@@ -27,6 +27,7 @@ async function bootstrap() {
   await fastify.register(cors, {
     origin: ALLOWED_ORIGINS,
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id', 'apikey'],
   })
 
   // Rotas da Evolution API
