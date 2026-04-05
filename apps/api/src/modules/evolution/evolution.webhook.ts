@@ -105,6 +105,7 @@ async function handleConnectionUpdate(
 async function handleMessagesUpsert(
   empresaId: string,
   data: MessagesUpsertData,
+  io: FastifyInstance['io'],
 ) {
   // Ignora mensagens enviadas pelo próprio sistema
   if (data.key.fromMe) return
@@ -162,7 +163,19 @@ async function handleMessagesUpsert(
     data: { atualizadoEm: new Date() },
   })
 
-  // TODO (dias 5-6): emitir nova_mensagem via Socket.io + Round Robin
+  // Emite nova_mensagem via Socket.io para o frontend
+  const msgPayload = {
+    id: mensagem.id,
+    chatId: chat.id,
+    tipo: mensagem.tipo,
+    autorId: null,
+    autorNome: data.pushName ?? contato.nome,
+    conteudo: texto,
+    lida: false,
+    criadaEm: mensagem.criadaEm.toISOString(),
+  }
+  emitParaEmpresa(io, empresaId, 'nova_mensagem', { chatId: chat.id, mensagem: msgPayload })
+  emitParaEmpresa(io, empresaId, 'chat_atualizado', { chatId: chat.id })
 }
 
 // ─── Rota do webhook ──────────────────────────────────────────────────────────
@@ -197,7 +210,7 @@ export async function evolutionWebhook(fastify: FastifyInstance) {
             break
 
           case 'MESSAGES_UPSERT':
-            await handleMessagesUpsert(empresaId, payload.data as MessagesUpsertData)
+            await handleMessagesUpsert(empresaId, payload.data as MessagesUpsertData, fastify.io)
             break
         }
       } catch (err) {

@@ -1,16 +1,57 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Sidebar } from '@/components/layout/Sidebar'
-import { mockChats, mockMensagensDisplay } from '@/src/mocks/chats'
 import { mockColunasAtendimento } from '@/src/mocks/kanban'
 import { mockUsuarioLogado } from '@/src/mocks/usuarios'
 import type { Chat, MensagemDisplay } from '@/src/types'
+import { io } from 'socket.io-client'
+
+const API_URL    = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const EMPRESA_ID = process.env.NEXT_PUBLIC_DEV_EMPRESA_ID ?? 'empresa-dev-001'
+
+async function apiFetch(path: string, options?: RequestInit) {
+  return fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', 'x-empresa-id': EMPRESA_ID, ...(options?.headers ?? {}) },
+  })
+}
+
+// ─── Hook: lista de chats em tempo real ───────────────────────────────────────
+
+function useChats() {
+  const [chats, setChats] = useState<Chat[]>([])
+  const [carregando, setCarregando] = useState(true)
+
+  const buscarChats = useCallback(async () => {
+    try {
+      const res  = await apiFetch('/api/chats')
+      const data = await res.json() as Chat[]
+      setChats(data)
+    } catch { /* mantém estado anterior */ }
+    finally { setCarregando(false) }
+  }, [])
+
+  useEffect(() => { buscarChats() }, [buscarChats])
+
+  useEffect(() => {
+    const socket = io(API_URL, { auth: { empresaId: EMPRESA_ID } })
+    socket.on('nova_mensagem', ({ chatId }: { chatId: string }) => {
+      setChats(prev => prev.map(c =>
+        c.id === chatId ? { ...c, totalNaoLidas: c.totalNaoLidas + 1, atualizadoEm: new Date().toISOString() } : c
+      ).sort((a, b) => new Date(b.atualizadoEm).getTime() - new Date(a.atualizadoEm).getTime()))
+    })
+    socket.on('chat_atualizado', () => { buscarChats() })
+    return () => { socket.disconnect() }
+  }, [buscarChats])
+
+  return { chats, carregando, recarregar: buscarChats }
+}
 import {
   Search, Send, Paperclip, Smile, MoreVertical,
   User, Clock, ChevronRight, CheckCheck, Check,
   ArrowLeftRight, XCircle, Lock, Zap, Bell,
-  Tag, Star, MessageSquare, Filter,
+  Tag, Star, MessageSquare, Filter, Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -299,13 +340,45 @@ const RESPOSTAS_RAPIDAS = [
 function AreaMensagens({ chat }: { chat: Chat }) {
   const [modoNota, setModoNota] = useState(false)
   const [texto, setTexto] = useState('')
+  const [enviando, setEnviando] = useState(false)
   const [mostrarRespostas, setMostrarRespostas] = useState(false)
+  const [mensagens, setMensagens] = useState<MensagemDisplay[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
-  const mensagens = mockMensagensDisplay[chat.id] ?? []
+
+  // Carrega mensagens ao trocar de chat
+  useEffect(() => {
+    setMensagens([])
+    apiFetch(`/api/chats/${chat.id}/mensagens`)
+      .then(r => r.json())
+      .then((data: MensagemDisplay[]) => setMensagens(data))
+      .catch(() => {})
+  }, [chat.id])
+
+  // Socket.io — novas mensagens em tempo real
+  useEffect(() => {
+    const socket = io(API_URL, { auth: { empresaId: EMPRESA_ID } })
+    socket.on('nova_mensagem', ({ chatId, mensagem }: { chatId: string; mensagem: MensagemDisplay }) => {
+      if (chatId === chat.id) setMensagens(prev => [...prev, mensagem])
+    })
+    return () => { socket.disconnect() }
+  }, [chat.id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chat.id])
+  }, [mensagens])
+
+  const enviarMensagem = async () => {
+    if (!texto.trim() || enviando) return
+    setEnviando(true)
+    try {
+      await apiFetch(`/api/chats/${chat.id}/mensagens`, {
+        method: 'POST',
+        body: JSON.stringify({ conteudo: texto.trim(), tipo: modoNota ? 'nota_interna' : 'texto' }),
+      })
+      setTexto('')
+    } catch { /* erro silencioso por ora */ }
+    finally { setEnviando(false) }
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -407,13 +480,17 @@ function AreaMensagens({ chat }: { chat: Chat }) {
               el.style.height = 'auto'
               el.style.height = el.scrollHeight + 'px'
             }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagem() }
+            }}
           />
           <button
-            disabled={!texto.trim()}
+            onClick={enviarMensagem}
+            disabled={!texto.trim() || enviando}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-opacity hover:opacity-80 disabled:opacity-40 shrink-0"
             style={{ backgroundColor: modoNota ? 'var(--color-amber)' : 'var(--color-accent)' }}
           >
-            <Send size={13} />
+            {enviando ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
           </button>
         </div>
       </div>
@@ -538,13 +615,14 @@ function EstadoVazio() {
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function InboxPage() {
-  const [chatAtivo, setChatAtivo] = useState<Chat | null>(mockChats[0])
+  const { chats, carregando } = useChats()
+  const [chatAtivo, setChatAtivo] = useState<Chat | null>(null)
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('Todos')
 
   const filtros: Filtro[] = ['Todos', 'Meus', 'Fila', 'VIP']
-  const chatsFiltrados = filtrarChats(mockChats, filtro, busca)
-  const totalNaoLidas = mockChats.reduce((s, c) => s + c.totalNaoLidas, 0)
+  const chatsFiltrados = filtrarChats(chats, filtro, busca)
+  const totalNaoLidas = chats.reduce((s, c) => s + c.totalNaoLidas, 0)
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--color-bg)' }}>
@@ -599,7 +677,7 @@ export default function InboxPage() {
             style={{ borderColor: 'var(--color-border)' }}
           >
             {filtros.map(f => {
-              const count = filtrarChats(mockChats, f, '').length
+              const count = filtrarChats(chats, f, '').length
               return (
                 <button
                   key={f}
@@ -619,10 +697,16 @@ export default function InboxPage() {
 
           {/* Lista */}
           <div className="flex-1 overflow-y-auto scrollbar-thin">
-            {chatsFiltrados.length === 0 ? (
+            {carregando ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+              </div>
+            ) : chatsFiltrados.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                 <MessageSquare size={24} style={{ color: 'var(--color-text3)' }} className="mb-2" />
-                <p className="text-[12px]" style={{ color: 'var(--color-text3)' }}>Nenhuma conversa encontrada</p>
+                <p className="text-[12px]" style={{ color: 'var(--color-text3)' }}>
+                  {chats.length === 0 ? 'Nenhuma conversa ainda' : 'Nenhuma conversa encontrada'}
+                </p>
               </div>
             ) : (
               chatsFiltrados.map(chat => (

@@ -8,6 +8,7 @@ import cors from '@fastify/cors'
 import { Server as SocketServer } from 'socket.io'
 import { evolutionRoutes } from './modules/evolution/evolution.routes'
 import { evolutionWebhook } from './modules/evolution/evolution.webhook'
+import { chatRoutes } from './modules/chat/chat.routes'
 import { initSocket } from './socket'
 
 const PORT = Number(process.env.API_PORT ?? 3001)
@@ -33,6 +34,9 @@ async function bootstrap() {
 
   // Webhook recebido da Evolution API
   await fastify.register(evolutionWebhook, { prefix: '/webhook' })
+
+  // Rotas de chat
+  await fastify.register(chatRoutes, { prefix: '/api' })
 
   // Health check
   fastify.get('/health', async () => ({ ok: true }))
