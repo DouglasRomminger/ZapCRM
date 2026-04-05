@@ -184,14 +184,14 @@ export async function evolutionWebhook(fastify: FastifyInstance) {
   fastify.post(
     '/evolution',
     async (req: FastifyRequest, reply: FastifyReply) => {
-      // Valida apikey no header — regra crítica de segurança
-      const apikey = req.headers['apikey'] as string | undefined
-      const validKeys = [process.env.EVOLUTION_API_KEY, '45469390-5DEF-4D84-B6B9-49DB228EC458']
-      if (!validKeys.includes(apikey)) {
+      const payload = req.body as EvolutionWebhookPayload
+
+      // Valida apikey no header ou no body (Evolution API v2 envia no body)
+      const apikey = (req.headers['apikey'] as string | undefined) ?? payload.apikey
+      const validKeys = [process.env.EVOLUTION_API_KEY, process.env.EVOLUTION_INSTANCE_TOKEN]
+      if (validKeys.filter(Boolean).length > 0 && !validKeys.includes(apikey)) {
         return reply.status(401).send({ error: 'Não autorizado' })
       }
-
-      const payload = req.body as EvolutionWebhookPayload
 
       // Nunca logar conteúdo de mensagens de usuários finais
       if (process.env.NODE_ENV === 'development' && payload.event !== 'MESSAGES_UPSERT') {
