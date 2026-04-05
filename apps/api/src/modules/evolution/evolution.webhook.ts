@@ -186,11 +186,12 @@ export async function evolutionWebhook(fastify: FastifyInstance) {
     async (req: FastifyRequest, reply: FastifyReply) => {
       const payload = req.body as EvolutionWebhookPayload
 
-      // TODO: reativar validação após confirmar fluxo completo
-      // const apikey = (req.headers['apikey'] as string | undefined) ?? payload.apikey
-      // if (apikey !== process.env.EVOLUTION_INSTANCE_TOKEN && apikey !== process.env.EVOLUTION_API_KEY) {
-      //   return reply.status(401).send({ error: 'Não autorizado' })
-      // }
+      // Valida token — Evolution API v2 envia o token da instância no header e no body
+      const apikey = (req.headers['apikey'] as string | undefined) ?? payload.apikey
+      const tokenEsperado = process.env.EVOLUTION_INSTANCE_TOKEN ?? process.env.EVOLUTION_API_KEY
+      if (tokenEsperado && apikey !== tokenEsperado) {
+        return reply.status(401).send({ error: 'Não autorizado' })
+      }
 
       // Nunca logar conteúdo de mensagens de usuários finais
       if (process.env.NODE_ENV === 'development' && payload.event !== 'MESSAGES_UPSERT') {
