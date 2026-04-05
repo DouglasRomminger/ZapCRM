@@ -145,7 +145,7 @@ async function handleMessagesUpsert(
   }
 
   // Salva mensagem — autorId null = mensagem do contato externo
-  await prisma.mensagem.create({
+  const mensagem = await prisma.mensagem.create({
     data: {
       chatId: chat.id,
       autorId: null,
