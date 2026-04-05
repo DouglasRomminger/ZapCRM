@@ -6,13 +6,11 @@ export function initSocket(io: SocketServer) {
     const token = socket.handshake.auth?.token as string | undefined
 
     if (!token) {
-      // Em desenvolvimento permite conexão sem token para testes
-      if (process.env.NODE_ENV !== 'production') {
-        const empresaId = socket.handshake.auth?.empresaId as string
-        if (empresaId) {
-          socket.data.empresaId = empresaId
-          return next()
-        }
+      // Permite empresaId direto enquanto auth JWT não está implementada
+      const empresaId = socket.handshake.auth?.empresaId as string
+      if (empresaId) {
+        socket.data.empresaId = empresaId
+        return next()
       }
       return next(new Error('Token não fornecido'))
     }
