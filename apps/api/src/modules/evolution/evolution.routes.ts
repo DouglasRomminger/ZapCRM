@@ -20,12 +20,11 @@ function extrairEmpresaId(req: FastifyRequest): string {
   return payload.empresaId
 }
 
-// Em desenvolvimento, aceita header x-empresa-id para testes sem JWT
+// Aceita header x-empresa-id enquanto auth real não está implementado
+// TODO: remover após implementar Supabase Auth
 function resolverEmpresaId(req: FastifyRequest): string {
-  if (process.env.NODE_ENV !== 'production') {
-    const devId = req.headers['x-empresa-id'] as string | undefined
-    if (devId) return devId
-  }
+  const devId = req.headers['x-empresa-id'] as string | undefined
+  if (devId) return devId
   return extrairEmpresaId(req)
 }
 
