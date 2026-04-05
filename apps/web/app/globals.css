@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ─── Design System ZapCRM ─────────────────────────── */
+    --color-sidebar:        #2D1B69;
+    --color-accent:         #7C3AED;
+    --color-accent-dark:    #6D28D9;
+    --color-purple-light:   #EDE9FE;
+    --color-purple-border:  #DDD6FE;
+    --color-bg:             #F5F6FA;
+    --color-surface:        #FFFFFF;
+    --color-text:           #1A1A2E;
+    --color-text2:          #6B7280;
+    --color-text3:          #9CA3AF;
+    --color-border:         #E5E7EB;
+    --color-green:          #10B981;
+    --color-green-bg:       #D1FAE5;
+    --color-red:            #EF4444;
+    --color-red-bg:         #FEE2E2;
+    --color-amber:          #F59E0B;
+    --color-amber-bg:       #FEF3C7;
+    --color-blue:           #3B82F6;
+    --color-blue-bg:        #DBEAFE;
+
+    /* ─── shadcn/ui tokens ─────────────────────────────── */
+    --background: #F5F6FA;
+    --foreground: #1A1A2E;
+    --card: #FFFFFF;
+    --card-foreground: #1A1A2E;
+    --popover: #FFFFFF;
+    --popover-foreground: #1A1A2E;
+    --primary: #7C3AED;
+    --primary-foreground: #FFFFFF;
+    --secondary: #EDE9FE;
+    --secondary-foreground: #2D1B69;
+    --muted: #F5F6FA;
+    --muted-foreground: #6B7280;
+    --accent: #EDE9FE;
+    --accent-foreground: #2D1B69;
+    --destructive: #EF4444;
+    --border: #E5E7EB;
+    --input: #E5E7EB;
+    --ring: #7C3AED;
+    --radius: 0.5rem;
+    --sidebar: #2D1B69;
+    --sidebar-foreground: #FFFFFF;
+    --sidebar-primary: #7C3AED;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: rgba(255,255,255,0.08);
+    --sidebar-accent-foreground: #FFFFFF;
+    --sidebar-border: rgba(255,255,255,0.1);
+    --sidebar-ring: #7C3AED;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Inter', sans-serif;
+  }
+
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Scrollbar customizada */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+  }
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
