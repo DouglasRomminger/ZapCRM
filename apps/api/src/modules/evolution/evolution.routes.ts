@@ -20,11 +20,11 @@ function extrairEmpresaId(req: FastifyRequest): string {
   return payload.empresaId
 }
 
-// Aceita header x-empresa-id enquanto auth real não está implementado
+// Aceita header x-empresa-id apenas em desenvolvimento (atalho enquanto não há auth real).
 // TODO: remover após implementar Supabase Auth
 function resolverEmpresaId(req: FastifyRequest): string {
   const devId = req.headers['x-empresa-id'] as string | undefined
-  if (devId) return devId
+  if (devId && process.env.NODE_ENV !== 'production') return devId
   return extrairEmpresaId(req)
 }
 

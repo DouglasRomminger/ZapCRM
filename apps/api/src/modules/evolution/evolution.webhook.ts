@@ -178,12 +178,34 @@ async function handleMessagesUpsert(
   emitParaEmpresa(io, empresaId, 'chat_atualizado', { chatId: chat.id })
 }
 
+// ─── Validação de origem do webhook ───────────────────────────────────────────
+// A Evolution envia EVOLUTION_API_KEY no header `apikey` (a v2 também pode mandar no body).
+// Espelha o padrão do RecrutaRH: fail-closed em produção quando a key não está configurada.
+function apikeyValida(req: FastifyRequest): boolean {
+  const esperado = process.env.EVOLUTION_API_KEY
+  if (!esperado) {
+    // Sem key configurada: em dev libera; em produção recusa (fail-closed).
+    return process.env.NODE_ENV !== 'production'
+  }
+  const body = req.body as EvolutionWebhookPayload | undefined
+  const recebido =
+    (req.headers['apikey'] as string | undefined) ??
+    (req.headers['x-api-key'] as string | undefined) ??
+    body?.apikey
+  return recebido === esperado
+}
+
 // ─── Rota do webhook ──────────────────────────────────────────────────────────
 
 export async function evolutionWebhook(fastify: FastifyInstance) {
   fastify.post(
     '/evolution',
     async (req: FastifyRequest, reply: FastifyReply) => {
+      if (!apikeyValida(req)) {
+        req.log.warn({ ip: req.ip }, 'webhook evolution recusado: apikey inválida')
+        return reply.status(401).send({ error: 'apikey inválida' })
+      }
+
       const payload = req.body as EvolutionWebhookPayload
 
 

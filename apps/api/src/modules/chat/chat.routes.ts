@@ -7,8 +7,9 @@ import { sendTextMessage } from '../evolution/evolution.client'
 // ─── Auth helper (igual ao evolution.routes) ──────────────────────────────────
 
 function resolverEmpresaId(req: FastifyRequest): string {
+  // Header x-empresa-id é atalho de desenvolvimento — nunca aceitar em produção.
   const devId = req.headers['x-empresa-id'] as string | undefined
-  if (devId) return devId
+  if (devId && process.env.NODE_ENV !== 'production') return devId
   const auth = req.headers.authorization
   if (!auth?.startsWith('Bearer ')) throw new Error('Não autorizado')
   return verifyToken(auth.slice(7)).empresaId
