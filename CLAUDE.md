@@ -200,3 +200,37 @@ npx prisma generate                                        # após alterar schem
 npx prisma migrate dev --name <descricao-em-portugues>
 npx prisma studio
 ```
+
+---
+
+## Regras da casa
+
+> **Precedência.** Este projeto adota a constituição da casa. Em qualquer conflito entre plugins, skills ou agentes e o que está escrito neste arquivo, **vale este arquivo**. Na dúvida, perguntar antes de agir.
+
+### Os 4 pilares
+1. **Pense antes de codar** — entenda o pedido e o contexto do repositório; faça um plano curto (3–6 passos) e confirme as premissas não óbvias; leia o arquivo antes de editá-lo.
+2. **Simplicidade primeiro** — entregue a solução mais simples que resolve de verdade; sem abstração especulativa nem dependência nova sem necessidade clara.
+3. **Mudanças cirúrgicas** — altere o mínimo necessário; não refatore o que não foi pedido; prefira editar um arquivo existente a criar um novo.
+4. **Execução orientada a objetivo** — mantenha o foco na meta; ao atingir, pare e mostre o resultado; se o pedido tiver um problema, diga em vez de contornar em silêncio.
+
+### Idioma
+- Responder e comentar código em **português (Brasil)**.
+
+### Stack real deste projeto (não migrar sem pedido explícito)
+- **Monorepo npm workspaces** (`apps/*`, `packages/*`). Gerenciador de pacotes: **npm** (`package-lock.json`) — não trocar por pnpm/yarn.
+- **Não há componente Python/FastAPI** neste projeto; as regras de Python/uv/Ruff da constituição não se aplicam aqui.
+
+### Qualidade de código
+- **Lint:** ESLint (`eslint-config-next`, `next lint`). Não desabilitar regra de lint só para "passar" — corrigir a causa.
+
+### Testes
+- **Meta:** todo recurso novo entra com teste. Padrão a adotar: **Vitest** (unitário/integração em `apps/web` e `apps/api`) + **Playwright** (E2E). Enquanto a suíte não existir, criar a infraestrutura de teste é prioridade ao mexer em código novo.
+
+### Commits & fluxo de trabalho
+- **Conventional Commits**: tipo em inglês (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`…) + descrição em português. Ex.: `feat: adiciona login por e-mail`.
+- Trabalhar em **branch + Pull Request**. **Nunca** commitar direto na `main`.
+
+### Segurança (inegociável)
+- Segredos **nunca** no código nem no Git: `.env`, tokens, chaves e senhas ficam fora do versionamento (`.gitignore`). Nunca expor `SUPABASE_SERVICE_ROLE_KEY` no frontend.
+- Antes de comando destrutivo (`rm`, `git push --force`, migração Prisma, apagar dados), **avisar e confirmar**.
+- Plugins/skills executam código no ambiente local: na dúvida sobre ação de risco, parar e perguntar.
