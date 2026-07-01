@@ -40,17 +40,17 @@ interface MessagesUpsertData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function extrairEmpresaId(instanceName: string): string {
+export function extrairEmpresaId(instanceName: string): string {
   // instanceName = "zapcrmapp-{empresaId}"
   return instanceName.replace('zapcrmapp-', '')
 }
 
-function extrairNumero(jid: string): string {
+export function extrairNumero(jid: string): string {
   // "5511999999999@s.whatsapp.net" → "5511999999999"
   return jid.split('@')[0]
 }
 
-function extrairTexto(data: MessagesUpsertData): string {
+export function extrairTexto(data: MessagesUpsertData): string {
   const msg = data.message
   if (!msg) return ''
   return (
@@ -181,7 +181,7 @@ async function handleMessagesUpsert(
 // ─── Validação de origem do webhook ───────────────────────────────────────────
 // A Evolution envia EVOLUTION_API_KEY no header `apikey` (a v2 também pode mandar no body).
 // Espelha o padrão do RecrutaRH: fail-closed em produção quando a key não está configurada.
-function apikeyValida(req: FastifyRequest): boolean {
+export function apikeyValida(req: FastifyRequest): boolean {
   const esperado = process.env.EVOLUTION_API_KEY
   if (!esperado) {
     // Sem key configurada: em dev libera; em produção recusa (fail-closed).
