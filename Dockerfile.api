@@ -20,4 +20,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+# Aplica migrations pendentes (usa DIRECT_URL) antes de subir a API
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=../../prisma/schema.prisma && node dist/index.js"]

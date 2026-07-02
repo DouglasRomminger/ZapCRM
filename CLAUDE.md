@@ -139,7 +139,7 @@ Usar variáveis CSS — nunca hardcodar hex em componentes.
 
 4. **Pesquisa de satisfação:** dispara **somente** após operador clicar em Encerrar. Job Bull aguarda exatamente 2 minutos. Máximo 1 pesquisa por cliente a cada 7 dias. Nota ≤ 2 emite `alerta_satisfacao` ao supervisor.
 
-5. **Campanhas — anti-spam:** disparos apenas entre 08:00–20:00 (America/Sao_Paulo), máximo 1 mensagem por cliente por dia, nunca enviar se `Contato.optin !== true`. Ver `docs/campanhas.md`.
+5. **Campanhas — anti-spam:** disparos apenas entre 08:00–20:00 (America/Sao_Paulo), máximo 1 mensagem por cliente por dia. **Optin:** campanhas de marketing/remarketing exigem `Contato.optin === true`; **prospecção B2B fria** (leads captados via Apify/prospecção) é permitida **sem optin**, desde que com opt-out fácil na primeira mensagem, warm-up gradual e limite diário de volume. Prospecção fria usa **número/instância WhatsApp dedicado** — nunca o número principal de atendimento (decisão de 02/07/2026). Ver `docs/campanhas.md`.
 
 6. **Super Admin:** 2FA obrigatório sem exceção, sessão de 4 horas, bloqueio após 3 tentativas. `LogSuperAdmin` é imutável — nunca gerar DELETE ou UPDATE nessa tabela. Ver `docs/super-admin.md`.
 
