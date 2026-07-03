@@ -1,6 +1,11 @@
 import jwt from 'jsonwebtoken'
 
-const SECRET = process.env.JWT_SECRET!
+// Lido na hora do uso (não no load) — permite testes e falha com mensagem clara
+function secret(): string {
+  const s = process.env.JWT_SECRET
+  if (!s) throw new Error('JWT_SECRET não configurado')
+  return s
+}
 
 export interface JwtPayload {
   empresaId: string
@@ -9,9 +14,9 @@ export interface JwtPayload {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, SECRET, { expiresIn: '12h' })
+  return jwt.sign(payload, secret(), { expiresIn: '12h' })
 }
 
 export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, SECRET) as JwtPayload
+  return jwt.verify(token, secret()) as JwtPayload
 }

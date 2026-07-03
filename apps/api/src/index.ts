@@ -11,6 +11,7 @@ import { Server as SocketServer } from 'socket.io'
 import { evolutionRoutes } from './modules/evolution/evolution.routes'
 import { evolutionWebhook } from './modules/evolution/evolution.webhook'
 import { chatRoutes } from './modules/chat/chat.routes'
+import { authRoutes } from './modules/auth/auth.routes'
 import { initSocket } from './socket'
 
 const PORT = Number(process.env.API_PORT ?? 3001)
@@ -31,6 +32,9 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id', 'apikey'],
   })
+
+  // Rotas de autenticação
+  await fastify.register(authRoutes, { prefix: '/api/auth' })
 
   // Rotas da Evolution API
   await fastify.register(evolutionRoutes, { prefix: '/api/evolution' })
