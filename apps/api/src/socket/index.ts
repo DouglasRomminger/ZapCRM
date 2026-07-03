@@ -6,9 +6,9 @@ export function initSocket(io: SocketServer) {
     const token = socket.handshake.auth?.token as string | undefined
 
     if (!token) {
-      // Permite empresaId direto enquanto auth JWT não está implementada
+      // Atalho de desenvolvimento: empresaId direto sem JWT — nunca em produção.
       const empresaId = socket.handshake.auth?.empresaId as string
-      if (empresaId) {
+      if (empresaId && process.env.NODE_ENV !== 'production') {
         socket.data.empresaId = empresaId
         return next()
       }
