@@ -32,13 +32,23 @@ export interface CreateInstanceResult {
   qrcode?: { base64: string; count: number }
 }
 
-export async function createInstance(instanceName: string): Promise<CreateInstanceResult> {
+export async function createInstance(
+  instanceName: string,
+  webhookUrl: string,
+): Promise<CreateInstanceResult> {
+  // Evolution API v2 exige o webhook aninhado já na criação da instância.
   return request('/instance/create', {
     method: 'POST',
     body: JSON.stringify({
       instanceName,
       qrcode: true,
       integration: 'WHATSAPP-BAILEYS',
+      webhook: {
+        url: webhookUrl,
+        byEvents: false,
+        base64: true,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+      },
     }),
   })
 }
