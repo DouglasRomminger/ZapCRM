@@ -6,7 +6,6 @@ import {
   getConnectionState,
   getQrCode,
   logoutInstance,
-  setWebhook,
 } from './evolution.client'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -95,11 +94,9 @@ export async function evolutionRoutes(fastify: FastifyInstance) {
       // Tenta criar a instância (pode já existir — tratamos o erro)
       let qrcodeBase64: string | null = null
       try {
-        const criada = await createInstance(instanceName)
+        // O webhook já vai aninhado no createInstance (exigência da Evolution v2)
+        const criada = await createInstance(instanceName, webhookUrl)
         qrcodeBase64 = criada.qrcode?.base64 ?? (criada as any).base64 ?? null
-
-        // Configura webhook na instância recém-criada
-        await setWebhook({ instanceName, webhookUrl })
       } catch (err: unknown) {
         // Instância já existe — apenas busca o QR
         const msg = err instanceof Error ? err.message : ''
