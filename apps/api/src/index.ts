@@ -12,6 +12,7 @@ import { evolutionRoutes } from './modules/evolution/evolution.routes'
 import { evolutionWebhook } from './modules/evolution/evolution.webhook'
 import { chatRoutes } from './modules/chat/chat.routes'
 import { authRoutes } from './modules/auth/auth.routes'
+import { contatosRoutes } from './modules/contatos/contatos.routes'
 import { initSocket } from './socket'
 
 const PORT = Number(process.env.API_PORT ?? 3001)
@@ -44,6 +45,9 @@ async function bootstrap() {
 
   // Rotas de chat
   await fastify.register(chatRoutes, { prefix: '/api' })
+
+  // Rotas de contatos
+  await fastify.register(contatosRoutes, { prefix: '/api' })
 
   // Health check
   fastify.get('/health', async () => ({ ok: true }))

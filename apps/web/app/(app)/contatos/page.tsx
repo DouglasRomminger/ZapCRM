@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { mockContatos } from '@/src/mocks/contatos'
+import { apiFetch } from '@/lib/auth'
 import { mockChats } from '@/src/mocks/chats'
 import { mockAvaliacoes } from '@/src/mocks/avaliacoes'
 import type { Contato, Avaliacao } from '@/src/types'
@@ -298,9 +298,16 @@ export default function ContatosPage() {
   const [filtroOptin, setFiltroOptin] = useState<'todos' | 'ativo' | 'inativo'>('todos')
   const [filtroTag, setFiltroTag] = useState('')
   const [contatoSelecionado, setContatoSelecionado] = useState<ReturnType<typeof enriquecerContato> | null>(null)
+  const [contatosReais, setContatosReais] = useState<ReturnType<typeof enriquecerContato>[]>([])
 
-  const contatos = mockContatos
-    .map(enriquecerContato)
+  useEffect(() => {
+    apiFetch('/api/contatos')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setContatosReais(d as ReturnType<typeof enriquecerContato>[]) })
+      .catch(() => {})
+  }, [])
+
+  const contatos = contatosReais
     .filter(c => {
       if (busca && !c.nome.toLowerCase().includes(busca.toLowerCase())) return false
       if (filtroOptin === 'ativo' && !c.optin) return false
@@ -309,7 +316,7 @@ export default function ContatosPage() {
       return true
     })
 
-  const todasTags = Array.from(new Set(mockContatos.flatMap(c => c.tags)))
+  const todasTags = Array.from(new Set(contatosReais.flatMap(c => c.tags)))
 
   return (
     <AppLayout title="Contatos" subtitle="CRM de contatos e clientes">
