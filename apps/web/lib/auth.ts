@@ -1,6 +1,7 @@
 // Sessão do usuário no navegador (token JWT + dados básicos) e fetch autenticado.
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+// Em dev, o .env define NEXT_PUBLIC_API_URL=http://localhost:3001; sem env, usa produção.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://zapcrm-zapcrm-api.jhtjgq.easypanel.host'
 
 export interface UsuarioLogado {
   id: string
