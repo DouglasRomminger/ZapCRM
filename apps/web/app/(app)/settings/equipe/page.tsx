@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { mockOperadores } from '@/src/mocks/usuarios'
-import { mockAvaliacoes } from '@/src/mocks/avaliacoes'
-import { mockChats } from '@/src/mocks/chats'
+import { apiFetch } from '@/lib/auth'
 import type { Usuario, RoleUsuario, StatusOperador } from '@/src/types'
+
+type Operador = Usuario & { chatsAbertos: number; notaMedia: number | null }
 import { Plus, X, UserPlus, Mail, Shield, MessageSquare, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -37,14 +37,11 @@ function roleColor(r: RoleUsuario) {
 
 // ─── Card do operador ─────────────────────────────────────────────────────────
 
-function OperadorCard({ op, onEditar }: { op: Usuario; onEditar: (op: Usuario) => void }) {
+function OperadorCard({ op, onEditar }: { op: Operador; onEditar: (op: Usuario) => void }) {
   const st = statusConfig(op.status)
   const rc = roleColor(op.role)
-  const chatsAbertos = mockChats.filter(c => c.operador?.id === op.id && c.status !== 'ENCERRADO').length
-  const notas = mockAvaliacoes.filter(a => a.operador.id === op.id)
-  const notaMedia = notas.length
-    ? (notas.reduce((s, a) => s + a.nota, 0) / notas.length).toFixed(1)
-    : '—'
+  const chatsAbertos = op.chatsAbertos
+  const notaMedia = op.notaMedia != null ? op.notaMedia.toFixed(1) : '—'
 
   return (
     <div
@@ -233,10 +230,18 @@ function FormField({ label, icon: Icon, children }: { label: string; icon: React
 export default function EquipePage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [operadorEditando, setOperadorEditando] = useState<Usuario | null>(null)
+  const [operadores, setOperadores] = useState<Operador[]>([])
 
-  const online  = mockOperadores.filter(o => o.status === 'ONLINE').length
-  const ausente = mockOperadores.filter(o => o.status === 'AUSENTE').length
-  const offline = mockOperadores.filter(o => o.status === 'OFFLINE').length
+  useEffect(() => {
+    apiFetch('/api/usuarios')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setOperadores(d as Operador[]) })
+      .catch(() => {})
+  }, [])
+
+  const online  = operadores.filter(o => o.status === 'ONLINE').length
+  const ausente = operadores.filter(o => o.status === 'AUSENTE').length
+  const offline = operadores.filter(o => o.status === 'OFFLINE').length
 
   function abrirEditar(op: Usuario) {
     setOperadorEditando(op)
@@ -268,7 +273,7 @@ export default function EquipePage() {
 
         {/* Lista */}
         <div className="space-y-3">
-          {mockOperadores.map(op => (
+          {operadores.map(op => (
             <OperadorCard key={op.id} op={op} onEditar={abrirEditar} />
           ))}
         </div>

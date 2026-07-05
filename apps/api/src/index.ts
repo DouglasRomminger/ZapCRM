@@ -15,6 +15,7 @@ import { authRoutes } from './modules/auth/auth.routes'
 import { contatosRoutes } from './modules/contatos/contatos.routes'
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes'
 import { kanbanRoutes } from './modules/kanban/kanban.routes'
+import { usuariosRoutes } from './modules/usuarios/usuarios.routes'
 import { initSocket } from './socket'
 
 const PORT = Number(process.env.API_PORT ?? 3001)
@@ -56,6 +57,9 @@ async function bootstrap() {
 
   // Rotas do kanban
   await fastify.register(kanbanRoutes, { prefix: '/api' })
+
+  // Rotas de usuários / equipe
+  await fastify.register(usuariosRoutes, { prefix: '/api' })
 
   // Health check
   fastify.get('/health', async () => ({ ok: true }))
