@@ -61,4 +61,28 @@ export async function contatosRoutes(fastify: FastifyInstance) {
       return reply.status(msg.includes('autoriz') ? 401 : 500).send({ error: msg })
     }
   })
+
+  // POST /api/contatos — cria contato manualmente
+  fastify.post('/contatos', async (req: FastifyRequest<{
+    Body: { nome?: string; telefone?: string; email?: string; tags?: string[]; optin?: boolean }
+  }>, reply: FastifyReply) => {
+    try {
+      const empresaId = resolverEmpresaId(req)
+      const { nome, telefone, email, tags = [], optin = false } = req.body ?? {}
+      if (!nome || !telefone) {
+        return reply.status(400).send({ error: 'Informe nome e telefone' })
+      }
+      const soDigitos = telefone.replace(/\D/g, '')
+      const contato = await prisma.contato.create({
+        data: { empresaId, nome, telefone: soDigitos, email: email || null, tags, optin },
+      })
+      return reply.status(201).send(contato)
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('Unique constraint')) {
+        return reply.status(409).send({ error: 'Já existe um contato com este telefone' })
+      }
+      const msg = err instanceof Error ? err.message : 'Erro interno'
+      return reply.status(msg.includes('autoriz') ? 401 : 500).send({ error: msg })
+    }
+  })
 }

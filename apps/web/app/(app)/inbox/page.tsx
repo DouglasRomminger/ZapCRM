@@ -185,7 +185,13 @@ function KanbanProgress({ chat }: { chat: Chat }) {
 
 // ─── ChatTopbar ────────────────────────────────────────────────────────────────
 
-function ChatTopbar({ chat }: { chat: Chat }) {
+function ChatTopbar({ chat, onEncerrado }: { chat: Chat; onEncerrado: () => void }) {
+  async function encerrar() {
+    if (!window.confirm(`Encerrar o atendimento de ${chat.contato.nome}?`)) return
+    const res = await apiFetch(`/api/chats/${chat.id}/encerrar`, { method: 'PATCH', body: '{}' })
+    if (res.ok) onEncerrado()
+  }
+
   return (
     <div
       className="flex items-center justify-between px-5 h-[58px] border-b shrink-0 gap-4"
@@ -218,25 +224,32 @@ function ChatTopbar({ chat }: { chat: Chat }) {
 
       <div className="flex items-center gap-1.5 shrink-0">
         <button
-          className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-gray-50"
+          disabled
+          title="Em breve"
+          className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md opacity-50 cursor-not-allowed"
           style={{ border: '1px solid var(--color-border)', color: 'var(--color-text2)' }}
         >
           <ArrowLeftRight size={11} /> Transferir
         </button>
         <button
-          className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-gray-50"
+          disabled
+          title="Em breve"
+          className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md opacity-50 cursor-not-allowed"
           style={{ border: '1px solid var(--color-border)', color: 'var(--color-text2)' }}
         >
           <Bell size={11} /> Soneca
         </button>
         <button
+          onClick={encerrar}
           className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-md text-white transition-opacity hover:opacity-80"
           style={{ backgroundColor: 'var(--color-red)' }}
         >
           <XCircle size={11} /> Encerrar
         </button>
         <button
-          className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+          disabled
+          title="Em breve"
+          className="p-1.5 rounded-md opacity-50 cursor-not-allowed"
           style={{ color: 'var(--color-text2)' }}
         >
           <MoreVertical size={14} />
@@ -454,10 +467,10 @@ function AreaMensagens({ chat }: { chat: Chat }) {
             backgroundColor: modoNota ? 'var(--color-amber-bg)' : 'var(--color-bg)',
           }}
         >
-          <button style={{ color: 'var(--color-text3)' }} className="pb-0.5">
+          <button disabled title="Em breve" style={{ color: 'var(--color-text3)' }} className="pb-0.5 opacity-50 cursor-not-allowed">
             <Smile size={17} />
           </button>
-          <button style={{ color: 'var(--color-text3)' }} className="pb-0.5">
+          <button disabled title="Em breve" style={{ color: 'var(--color-text3)' }} className="pb-0.5 opacity-50 cursor-not-allowed">
             <Paperclip size={17} />
           </button>
           <textarea
@@ -543,13 +556,17 @@ function PainelContato({ chat }: { chat: Chat }) {
             Ações
           </p>
           <button
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium transition-opacity hover:opacity-80"
+            disabled
+            title="Em breve"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium opacity-50 cursor-not-allowed"
             style={{ backgroundColor: 'var(--color-purple-light)', color: 'var(--color-accent)' }}
           >
             <Tag size={12} /> Ver histórico completo
           </button>
           <button
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium transition-opacity hover:opacity-80"
+            disabled
+            title="Em breve"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium opacity-50 cursor-not-allowed"
             style={{ backgroundColor: 'var(--color-blue-bg)', color: 'var(--color-blue)' }}
           >
             <Star size={12} /> Marcar como VIP
@@ -717,7 +734,7 @@ export default function InboxPage() {
         <div className="flex-1 flex flex-col h-screen min-w-0">
           {chatAtivo ? (
             <>
-              <ChatTopbar chat={chatAtivo} />
+              <ChatTopbar chat={chatAtivo} onEncerrado={() => setChatAtivo(null)} />
               <AreaMensagens chat={chatAtivo} />
             </>
           ) : (

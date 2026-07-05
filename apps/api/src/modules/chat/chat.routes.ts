@@ -185,4 +185,45 @@ export async function chatRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: msg })
     }
   })
+
+  // PATCH /api/chats/:id/encerrar — encerra o atendimento
+  fastify.patch('/chats/:id/encerrar', async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    try {
+      const empresaId = resolverEmpresaId(req)
+      const { id } = req.params
+
+      const chat = await prisma.chat.findFirst({ where: { id, empresaId } })
+      if (!chat) return reply.status(404).send({ error: 'Chat não encontrado' })
+      if (chat.status === 'ENCERRADO') return { ok: true }
+
+      // Quem encerrou (quando autenticado por JWT)
+      let usuarioId: string | null = null
+      const auth = req.headers.authorization
+      if (auth?.startsWith('Bearer ')) {
+        try { usuarioId = verifyToken(auth.slice(7)).usuarioId } catch { /* dev header */ }
+      }
+
+      const colEncerrado = await prisma.kanbanColuna.findFirst({
+        where: { empresaId, tipo: 'ATENDIMENTO', nome: 'Encerrado' },
+      })
+
+      await prisma.chat.update({
+        where: { id },
+        data: { status: 'ENCERRADO', kanbanColunaId: colEncerrado?.id ?? chat.kanbanColunaId },
+      })
+
+      // LogAtividade obrigatório (Regra Crítica #2)
+      await prisma.logAtividade.create({
+        data: { chatId: id, usuarioId, tipo: 'ENCERRAMENTO', descricao: 'Atendimento encerrado' },
+      })
+
+      // Socket antes do retorno HTTP (ADR-004)
+      emitParaEmpresa(fastify.io, empresaId, 'chat_atualizado', { chatId: id })
+
+      return { ok: true }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro interno'
+      return reply.status(500).send({ error: msg })
+    }
+  })
 }

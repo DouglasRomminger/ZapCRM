@@ -174,7 +174,9 @@ function KanbanColunaView({ coluna }: { coluna: KanbanCol }) {
         )}
 
         <button
-          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] transition-colors hover:bg-gray-100"
+          disabled
+          title="Em breve"
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] opacity-50 cursor-not-allowed"
           style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text3)' }}
         >
           <Plus size={12} /> Adicionar
@@ -190,12 +192,23 @@ export default function KanbanPage() {
   const [tipo, setTipo] = useState<'ATENDIMENTO' | 'PIPELINE'>('ATENDIMENTO')
   const [colunas, setColunas] = useState<KanbanCol[]>([])
 
-  useEffect(() => {
+  function carregarColunas() {
     apiFetch('/api/kanban')
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) setColunas(d as KanbanCol[]) })
       .catch(() => {})
-  }, [])
+  }
+  useEffect(() => { carregarColunas() }, [])
+
+  async function novaColuna() {
+    const nome = window.prompt('Nome da nova coluna:')
+    if (!nome) return
+    const res = await apiFetch('/api/kanban/colunas', {
+      method: 'POST',
+      body: JSON.stringify({ nome, tipo }),
+    })
+    if (res.ok) carregarColunas()
+  }
 
   const colunasDoTipo = colunas.filter(c => c.tipo === tipo)
 
@@ -226,7 +239,8 @@ export default function KanbanPage() {
           </div>
 
           <button
-            className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md text-white"
+            onClick={novaColuna}
+            className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md text-white transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--color-accent)' }}
           >
             <Plus size={13} /> Nova coluna
