@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { mockColunasAtendimento } from '@/src/mocks/kanban'
-import { mockUsuarioLogado } from '@/src/mocks/usuarios'
+import { obterUsuario } from '@/lib/auth'
 import type { Chat, MensagemDisplay } from '@/src/types'
 import { io } from 'socket.io-client'
 
@@ -64,7 +64,7 @@ function iniciais(nome: string) {
 type Filtro = 'Todos' | 'Meus' | 'Fila' | 'VIP'
 
 function filtrarChats(chats: Chat[], filtro: Filtro, busca: string) {
-  const uid = mockUsuarioLogado.id
+  const uid = obterUsuario()?.id ?? ''
   let resultado = chats
   if (filtro === 'Meus')  resultado = chats.filter(c => c.operador?.id === uid)
   if (filtro === 'Fila')  resultado = chats.filter(c => !c.operador)
