@@ -1,12 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { mockChats } from '@/src/mocks/chats'
-import { mockColunasAtendimento } from '@/src/mocks/kanban'
-import type { Chat, KanbanColuna } from '@/src/types'
+import { apiFetch } from '@/lib/auth'
 import { MoreHorizontal, Plus, Clock, User, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+interface KanbanChat {
+  id: string
+  status: string
+  atualizadoEm: string
+  totalNaoLidas: number
+  contato: { nome: string; telefone: string }
+  operador: { nome: string } | null
+  ultimaMensagem: { conteudo: string } | null
+}
+interface KanbanCol {
+  id: string
+  nome: string
+  cor: string
+  ordem: number
+  tipo: 'ATENDIMENTO' | 'PIPELINE'
+  chats: KanbanChat[]
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,7 +41,7 @@ function iniciais(nome: string) {
 
 // ─── Card de chat no Kanban ────────────────────────────────────────────────────
 
-function KanbanCard({ chat, cor }: { chat: Chat; cor: string }) {
+function KanbanCard({ chat, cor }: { chat: KanbanChat; cor: string }) {
   const urgente = chat.status === 'AGUARDANDO' && (Date.now() - new Date(chat.atualizadoEm).getTime()) > 10 * 60000
 
   return (
@@ -76,12 +94,8 @@ function KanbanCard({ chat, cor }: { chat: Chat; cor: string }) {
       {/* Footer do card */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* Operador */}
           {chat.operador ? (
-            <div
-              className="flex items-center gap-1 text-[10px]"
-              style={{ color: 'var(--color-text3)' }}
-            >
+            <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text3)' }}>
               <User size={10} />
               <span>{chat.operador.nome.split(' ')[0]}</span>
             </div>
@@ -96,17 +110,12 @@ function KanbanCard({ chat, cor }: { chat: Chat; cor: string }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Não lidas */}
           {chat.totalNaoLidas > 0 && (
-            <span
-              className="flex items-center gap-0.5 text-[10px] font-semibold"
-              style={{ color: 'var(--color-accent)' }}
-            >
+            <span className="flex items-center gap-0.5 text-[10px] font-semibold" style={{ color: 'var(--color-accent)' }}>
               <MessageSquare size={10} />
               {chat.totalNaoLidas}
             </span>
           )}
-          {/* Tempo */}
           <span
             className="flex items-center gap-0.5 text-[10px]"
             style={{ color: urgente ? 'var(--color-red)' : 'var(--color-text3)' }}
@@ -122,7 +131,8 @@ function KanbanCard({ chat, cor }: { chat: Chat; cor: string }) {
 
 // ─── Coluna do Kanban ─────────────────────────────────────────────────────────
 
-function KanbanColuna_({ coluna, chats }: { coluna: KanbanColuna; chats: Chat[] }) {
+function KanbanColunaView({ coluna }: { coluna: KanbanCol }) {
+  const chats = coluna.chats
   return (
     <div className="flex flex-col w-[272px] shrink-0 h-full">
       {/* Header da coluna */}
@@ -163,7 +173,6 @@ function KanbanColuna_({ coluna, chats }: { coluna: KanbanColuna; chats: Chat[] 
           ))
         )}
 
-        {/* Adicionar card */}
         <button
           className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] transition-colors hover:bg-gray-100"
           style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text3)' }}
@@ -179,16 +188,19 @@ function KanbanColuna_({ coluna, chats }: { coluna: KanbanColuna; chats: Chat[] 
 
 export default function KanbanPage() {
   const [tipo, setTipo] = useState<'ATENDIMENTO' | 'PIPELINE'>('ATENDIMENTO')
+  const [colunas, setColunas] = useState<KanbanCol[]>([])
 
-  // Distribui os chats mock pelas colunas
-  const chatsPorColuna = (colunaId: string) =>
-    mockChats.filter(c => c.kanbanColuna?.id === colunaId)
+  useEffect(() => {
+    apiFetch('/api/kanban')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setColunas(d as KanbanCol[]) })
+      .catch(() => {})
+  }, [])
+
+  const colunasDoTipo = colunas.filter(c => c.tipo === tipo)
 
   return (
-    <AppLayout
-      title="Kanban"
-      subtitle="Gestão visual dos atendimentos"
-    >
+    <AppLayout title="Kanban" subtitle="Gestão visual dos atendimentos">
       <div className="flex flex-col h-[calc(100vh-58px)]">
         {/* Barra de controles */}
         <div
@@ -196,10 +208,7 @@ export default function KanbanPage() {
           style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
         >
           {/* Toggle Atendimento / Pipeline */}
-          <div
-            className="flex items-center p-0.5 rounded-lg gap-0.5"
-            style={{ backgroundColor: 'var(--color-bg)' }}
-          >
+          <div className="flex items-center p-0.5 rounded-lg gap-0.5" style={{ backgroundColor: 'var(--color-bg)' }}>
             {(['ATENDIMENTO', 'PIPELINE'] as const).map(t => (
               <button
                 key={t}
@@ -216,35 +225,26 @@ export default function KanbanPage() {
             ))}
           </div>
 
-          {/* Filtros */}
-          <div className="flex items-center gap-2">
-            <select
-              className="text-[12px] px-3 py-1.5 rounded-md outline-none"
-              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text2)', backgroundColor: 'var(--color-surface)' }}
-            >
-              <option>Todos os operadores</option>
-              <option>Ana Costa</option>
-              <option>Bruno Lima</option>
-            </select>
-            <button
-              className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md text-white"
-              style={{ backgroundColor: 'var(--color-accent)' }}
-            >
-              <Plus size={13} /> Nova coluna
-            </button>
-          </div>
+          <button
+            className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md text-white"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          >
+            <Plus size={13} /> Nova coluna
+          </button>
         </div>
 
         {/* Board */}
         <div className="flex-1 overflow-x-auto">
           <div className="flex gap-4 p-6 h-full" style={{ minWidth: 'max-content' }}>
-            {mockColunasAtendimento.map(coluna => (
-              <KanbanColuna_
-                key={coluna.id}
-                coluna={coluna}
-                chats={chatsPorColuna(coluna.id)}
-              />
-            ))}
+            {colunasDoTipo.length === 0 ? (
+              <div className="text-[13px] p-4" style={{ color: 'var(--color-text3)' }}>
+                Nenhuma coluna neste quadro ainda.
+              </div>
+            ) : (
+              colunasDoTipo.map(coluna => (
+                <KanbanColunaView key={coluna.id} coluna={coluna} />
+              ))
+            )}
           </div>
         </div>
       </div>
