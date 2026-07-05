@@ -130,12 +130,12 @@ function TooltipRow({ cor, label, valor, valorCor }: { cor: string; label: strin
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export function GraficoAtendimentos() {
+export function GraficoAtendimentos({ dados }: { dados?: typeof mockGraficoSemana }) {
   const [tipo, setTipo] = useState<TipoGrafico>('linha')
   const [hovIdx, setHovIdx] = useState<number | null>(null)
 
-  const data   = mockGraficoSemana
-  const maxVal = Math.max(...data.map(d => d.total))
+  const data   = dados && dados.length ? dados : mockGraficoSemana
+  const maxVal = Math.max(1, ...data.map(d => d.total))
   const pTotal = toPoints(data, 'total', maxVal)
   const pEnc   = toPoints(data, 'encerrados', maxVal)
 
