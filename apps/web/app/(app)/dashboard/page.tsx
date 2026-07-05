@@ -1,24 +1,44 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { GraficoAtendimentos } from '@/components/dashboard/GraficoAtendimentos'
-import { mockKpis } from '@/src/mocks/dashboard'
-import { mockChats } from '@/src/mocks/chats'
-import { mockColunasAtendimento } from '@/src/mocks/kanban'
+import { apiFetch } from '@/lib/auth'
 import {
   MessageSquare, Clock, CheckCircle2, Star,
   TrendingUp, ArrowUpRight, Zap,
 } from 'lucide-react'
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+interface Kpis {
+  totalAtendimentos: number
+  emAtendimento: number
+  aguardando: number
+  encerradosHoje: number
+  tmrMinutos: number
+  notaMedia: number
+}
+interface Coluna { id: string; nome: string; cor: string; totalChats: number }
+interface Recente {
+  id: string
+  status: string
+  contato: { nome: string }
+  ultimaMensagem: { conteudo: string } | null
+}
+interface GraficoDia { dia: string; total: number; encerrados: number }
+interface DashboardData { kpis: Kpis; colunas: Coluna[]; recentes: Recente[]; grafico: GraficoDia[] }
+
 // ─── Componente de KPI Card ───────────────────────────────────────────────────
 
 function KpiCard({
-  label, value, sub, icon: Icon, iconBg, trend,
+  label, value, sub, icon: Icon, iconBg,
 }: {
   label: string
   value: string | number
   sub?: string
   icon: React.ElementType
   iconBg: string
-  trend?: { value: string; positive: boolean }
 }) {
   return (
     <div
@@ -32,15 +52,6 @@ function KpiCard({
         <p className="text-[12px]" style={{ color: 'var(--color-text2)' }}>{label}</p>
         <p className="text-[22px] font-semibold mt-0.5" style={{ color: 'var(--color-text)' }}>{value}</p>
         {sub && <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text3)' }}>{sub}</p>}
-        {trend && (
-          <p
-            className="text-[11px] mt-1 flex items-center gap-1"
-            style={{ color: trend.positive ? 'var(--color-green)' : 'var(--color-red)' }}
-          >
-            <ArrowUpRight size={12} className={trend.positive ? '' : 'rotate-180'} />
-            {trend.value} vs ontem
-          </p>
-        )}
       </div>
     </div>
   )
@@ -48,7 +59,8 @@ function KpiCard({
 
 // ─── Mini Kanban ──────────────────────────────────────────────────────────────
 
-function MiniKanban() {
+function MiniKanban({ colunas }: { colunas: Coluna[] }) {
+  const total = colunas.reduce((s, c) => s + c.totalChats, 0)
   return (
     <div
       className="rounded-lg p-5"
@@ -60,31 +72,34 @@ function MiniKanban() {
           Ver tudo <ArrowUpRight size={10} />
         </a>
       </div>
-      <div className="space-y-2.5">
-        {mockColunasAtendimento.map((col) => {
-          const total = mockColunasAtendimento.reduce((s, c) => s + (c.totalChats || 0), 0)
-          const pct = Math.round(((col.totalChats || 0) / total) * 100)
-          return (
-            <div key={col.id}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
-                  <span className="text-[12px]" style={{ color: 'var(--color-text)' }}>{col.nome}</span>
+      {colunas.length === 0 ? (
+        <p className="text-[12px]" style={{ color: 'var(--color-text3)' }}>Nenhuma coluna configurada ainda.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {colunas.map((col) => {
+            const pct = total ? Math.round((col.totalChats / total) * 100) : 0
+            return (
+              <div key={col.id}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
+                    <span className="text-[12px]" style={{ color: 'var(--color-text)' }}>{col.nome}</span>
+                  </div>
+                  <span className="text-[12px] font-medium" style={{ color: 'var(--color-text2)' }}>
+                    {col.totalChats}
+                  </span>
                 </div>
-                <span className="text-[12px] font-medium" style={{ color: 'var(--color-text2)' }}>
-                  {col.totalChats}
-                </span>
+                <div className="h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-bg)' }}>
+                  <div
+                    className="h-1.5 rounded-full transition-all"
+                    style={{ width: `${pct}%`, backgroundColor: col.cor }}
+                  />
+                </div>
               </div>
-              <div className="h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-bg)' }}>
-                <div
-                  className="h-1.5 rounded-full transition-all"
-                  style={{ width: `${pct}%`, backgroundColor: col.cor }}
-                />
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -101,8 +116,7 @@ function statusLabel(status: string) {
   return map[status] ?? { label: status, color: '#888', bg: '#eee' }
 }
 
-function AtendimentosRecentes() {
-  const recentes = mockChats.slice(0, 5)
+function AtendimentosRecentes({ recentes }: { recentes: Recente[] }) {
   return (
     <div
       className="rounded-lg"
@@ -114,42 +128,45 @@ function AtendimentosRecentes() {
           Ver todos <ArrowUpRight size={10} />
         </a>
       </div>
-      <div>
-        {recentes.map((chat, i) => {
-          const s = statusLabel(chat.status)
-          return (
-            <div
-              key={chat.id}
-              className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
-              style={{ borderBottom: i < recentes.length - 1 ? '1px solid var(--color-border)' : undefined }}
-            >
-              {/* Avatar */}
+      {recentes.length === 0 ? (
+        <div className="px-5 py-8 text-center text-[12px]" style={{ color: 'var(--color-text3)' }}>
+          Nenhum atendimento ainda.
+        </div>
+      ) : (
+        <div>
+          {recentes.map((chat, i) => {
+            const s = statusLabel(chat.status)
+            return (
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0"
-                style={{ backgroundColor: 'var(--color-accent)' }}
+                key={chat.id}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                style={{ borderBottom: i < recentes.length - 1 ? '1px solid var(--color-border)' : undefined }}
               >
-                {chat.contato.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0"
+                  style={{ backgroundColor: 'var(--color-accent)' }}
+                >
+                  {chat.contato.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium truncate" style={{ color: 'var(--color-text)' }}>
+                    {chat.contato.nome}
+                  </p>
+                  <p className="text-[11px] truncate" style={{ color: 'var(--color-text3)' }}>
+                    {chat.ultimaMensagem?.conteudo}
+                  </p>
+                </div>
+                <span
+                  className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
+                  style={{ color: s.color, backgroundColor: s.bg }}
+                >
+                  {s.label}
+                </span>
               </div>
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium truncate" style={{ color: 'var(--color-text)' }}>
-                  {chat.contato.nome}
-                </p>
-                <p className="text-[11px] truncate" style={{ color: 'var(--color-text3)' }}>
-                  {chat.ultimaMensagem?.conteudo}
-                </p>
-              </div>
-              {/* Status badge */}
-              <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
-                style={{ color: s.color, backgroundColor: s.bg }}
-              >
-                {s.label}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -157,31 +174,40 @@ function AtendimentosRecentes() {
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { totalAtendimentos, emAtendimento, aguardando, encerradosHoje, tmrMinutos, notaMedia } = mockKpis
+  const [data, setData] = useState<DashboardData | null>(null)
+
+  useEffect(() => {
+    apiFetch('/api/dashboard')
+      .then(r => r.json())
+      .then(d => { if (d && d.kpis) setData(d as DashboardData) })
+      .catch(() => {})
+  }, [])
+
+  const k = data?.kpis
 
   return (
     <AppLayout title="Dashboard" subtitle="Visão geral dos atendimentos">
       <div className="p-6 space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <KpiCard label="Total hoje"       value={totalAtendimentos} icon={MessageSquare} iconBg="var(--color-accent)"  trend={{ value: '+12%', positive: true }} />
-          <KpiCard label="Em atendimento"   value={emAtendimento}     icon={Zap}           iconBg="var(--color-blue)" />
-          <KpiCard label="Aguardando"       value={aguardando}        icon={Clock}         iconBg="var(--color-amber)" />
-          <KpiCard label="Encerrados hoje"  value={encerradosHoje}    icon={CheckCircle2}  iconBg="var(--color-green)" />
-          <KpiCard label="TMR (min)"        value={tmrMinutos}        icon={TrendingUp}    iconBg="#8B5CF6"  trend={{ value: '-0.8min', positive: true }} />
-          <KpiCard label="Nota média"       value={notaMedia}         icon={Star}          iconBg="#F59E0B"  sub="de 5.0" />
+          <KpiCard label="Total hoje"       value={k?.totalAtendimentos ?? 0} icon={MessageSquare} iconBg="var(--color-accent)" />
+          <KpiCard label="Em atendimento"   value={k?.emAtendimento ?? 0}     icon={Zap}           iconBg="var(--color-blue)" />
+          <KpiCard label="Aguardando"       value={k?.aguardando ?? 0}        icon={Clock}         iconBg="var(--color-amber)" />
+          <KpiCard label="Encerrados hoje"  value={k?.encerradosHoje ?? 0}    icon={CheckCircle2}  iconBg="var(--color-green)" />
+          <KpiCard label="TMR (min)"        value={k?.tmrMinutos ?? 0}        icon={TrendingUp}    iconBg="#8B5CF6" />
+          <KpiCard label="Nota média"       value={k?.notaMedia ?? 0}         icon={Star}          iconBg="#F59E0B"  sub="de 5.0" />
         </div>
 
         {/* Gráfico + Mini Kanban */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div className="xl:col-span-2">
-            <GraficoAtendimentos />
+            <GraficoAtendimentos dados={data?.grafico} />
           </div>
-          <MiniKanban />
+          <MiniKanban colunas={data?.colunas ?? []} />
         </div>
 
         {/* Atendimentos recentes */}
-        <AtendimentosRecentes />
+        <AtendimentosRecentes recentes={data?.recentes ?? []} />
       </div>
     </AppLayout>
   )
