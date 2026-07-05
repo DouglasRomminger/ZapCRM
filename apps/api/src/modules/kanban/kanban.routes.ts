@@ -54,4 +54,27 @@ export async function kanbanRoutes(fastify: FastifyInstance) {
       return reply.status(msg.includes('autoriz') ? 401 : 500).send({ error: msg })
     }
   })
+
+  // POST /api/kanban/colunas — cria coluna nova
+  fastify.post('/kanban/colunas', async (req: FastifyRequest<{
+    Body: { nome?: string; cor?: string; tipo?: 'ATENDIMENTO' | 'PIPELINE' }
+  }>, reply: FastifyReply) => {
+    try {
+      const empresaId = resolverEmpresaId(req)
+      const { nome, cor = '#7C3AED', tipo = 'ATENDIMENTO' } = req.body ?? {}
+      if (!nome) return reply.status(400).send({ error: 'Informe o nome da coluna' })
+
+      const ultima = await prisma.kanbanColuna.findFirst({
+        where: { empresaId, tipo },
+        orderBy: { ordem: 'desc' },
+      })
+      const coluna = await prisma.kanbanColuna.create({
+        data: { empresaId, nome, cor, tipo, ordem: (ultima?.ordem ?? 0) + 1 },
+      })
+      return reply.status(201).send(coluna)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro interno'
+      return reply.status(msg.includes('autoriz') ? 401 : 500).send({ error: msg })
+    }
+  })
 }

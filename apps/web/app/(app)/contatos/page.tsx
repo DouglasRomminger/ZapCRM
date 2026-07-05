@@ -291,6 +291,75 @@ function AvaliacaoCard({ av }: { av: Avaliacao }) {
   )
 }
 
+// ─── Modal: novo contato ──────────────────────────────────────────────────────
+
+function ModalNovoContato({ onClose, onSalvo }: { onClose: () => void; onSalvo: () => void }) {
+  const [nome, setNome] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [email, setEmail] = useState('')
+  const [optin, setOptin] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvar() {
+    setErro(null)
+    if (!nome || !telefone) { setErro('Informe nome e telefone'); return }
+    setSalvando(true)
+    try {
+      const res = await apiFetch('/api/contatos', {
+        method: 'POST',
+        body: JSON.stringify({ nome, telefone, email: email || undefined, optin }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setErro(data?.error ?? 'Erro ao salvar'); return }
+      onSalvo()
+    } catch { setErro('Falha de conexão') } finally { setSalvando(false) }
+  }
+
+  const inputCls = 'w-full text-[13px] px-3 py-2.5 rounded-lg outline-none'
+  const inputStyle = { border: '1.5px solid var(--color-purple-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' } as const
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-md rounded-xl shadow-2xl" style={{ backgroundColor: 'var(--color-surface)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <p className="text-[15px] font-semibold" style={{ color: 'var(--color-text)' }}>Novo contato</p>
+          <button onClick={onClose} style={{ color: 'var(--color-text3)' }}><X size={18} /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--color-text2)' }}>Nome *</label>
+            <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Maria Souza" className={inputCls} style={inputStyle} />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--color-text2)' }}>Telefone (com DDI) *</label>
+            <input value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="5547999998888" className={inputCls} style={inputStyle} />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--color-text2)' }}>E-mail</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="opcional" className={inputCls} style={inputStyle} />
+          </div>
+          <label className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--color-text2)' }}>
+            <input type="checkbox" checked={optin} onChange={e => setOptin(e.target.checked)} className="accent-[var(--color-accent)]" />
+            Aceitou receber mensagens de marketing (optin)
+          </label>
+          {erro && <p className="text-[12px]" style={{ color: 'var(--color-red)' }}>{erro}</p>}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-[13px] font-medium" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text2)' }}>
+            Cancelar
+          </button>
+          <button onClick={salvar} disabled={salvando} className="flex-1 py-2.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-50" style={{ backgroundColor: 'var(--color-accent)' }}>
+            {salvando ? 'Salvando…' : 'Criar contato'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function ContatosPage() {
@@ -299,13 +368,15 @@ export default function ContatosPage() {
   const [filtroTag, setFiltroTag] = useState('')
   const [contatoSelecionado, setContatoSelecionado] = useState<ReturnType<typeof enriquecerContato> | null>(null)
   const [contatosReais, setContatosReais] = useState<ReturnType<typeof enriquecerContato>[]>([])
+  const [modalNovo, setModalNovo] = useState(false)
 
-  useEffect(() => {
+  function carregarContatos() {
     apiFetch('/api/contatos')
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) setContatosReais(d as ReturnType<typeof enriquecerContato>[]) })
       .catch(() => {})
-  }, [])
+  }
+  useEffect(() => { carregarContatos() }, [])
 
   const contatos = contatosReais
     .filter(c => {
@@ -362,11 +433,19 @@ export default function ContatosPage() {
           <div className="flex-1" />
 
           <button
-            className="flex items-center gap-1.5 text-[12px] font-medium px-4 py-2 rounded-lg text-white"
+            onClick={() => setModalNovo(true)}
+            className="flex items-center gap-1.5 text-[12px] font-medium px-4 py-2 rounded-lg text-white transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--color-accent)' }}
           >
             <UserPlus size={14} /> Novo contato
           </button>
+
+          {modalNovo && (
+            <ModalNovoContato
+              onClose={() => setModalNovo(false)}
+              onSalvo={() => { setModalNovo(false); carregarContatos() }}
+            />
+          )}
         </div>
 
         {/* Tabela */}

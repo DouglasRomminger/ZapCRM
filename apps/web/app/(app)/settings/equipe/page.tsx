@@ -111,11 +111,33 @@ function ModalOperador({
 }: {
   operador: Usuario | null
   onClose: () => void
+  onSalvo: () => void
 }) {
   const [nome, setNome] = useState(operador?.nome ?? '')
   const [email, setEmail] = useState(operador?.email ?? '')
   const [role, setRole] = useState<RoleUsuario>(operador?.role ?? 'OPERADOR')
   const [limiteChats, setLimiteChats] = useState(10)
+  const [senha, setSenha] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvar() {
+    setErro(null)
+    if (!nome || !email || senha.length < 6) {
+      setErro('Preencha nome, e-mail e senha (mínimo 6 caracteres)')
+      return
+    }
+    setSalvando(true)
+    try {
+      const res = await apiFetch('/api/usuarios', {
+        method: 'POST',
+        body: JSON.stringify({ nome, email, senha, role }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setErro(data?.error ?? 'Erro ao salvar'); return }
+      onSalvo()
+    } catch { setErro('Falha de conexão') } finally { setSalvando(false) }
+  }
 
   const roles: RoleUsuario[] = ['OPERADOR', 'SUPERVISOR', 'ADMIN']
 
@@ -155,6 +177,19 @@ function ModalOperador({
             />
           </FormField>
 
+          {!operador && (
+            <FormField label="Senha de acesso" icon={Shield}>
+              <input
+                type="password"
+                value={senha}
+                onChange={e => setSenha(e.target.value)}
+                placeholder="mínimo 6 caracteres"
+                className="w-full text-[13px] px-3 py-2.5 rounded-lg outline-none"
+                style={{ border: '1.5px solid var(--color-purple-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' }}
+              />
+            </FormField>
+          )}
+
           <FormField label="Perfil de acesso" icon={Shield}>
             <div className="flex gap-2">
               {roles.map(r => {
@@ -192,6 +227,10 @@ function ModalOperador({
           </FormField>
         </div>
 
+        {erro && (
+          <p className="px-6 pb-1 text-[12px]" style={{ color: 'var(--color-red)' }}>{erro}</p>
+        )}
+
         <div className="flex gap-3 px-6 py-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
           <button
             onClick={onClose}
@@ -201,11 +240,13 @@ function ModalOperador({
             Cancelar
           </button>
           <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-lg text-[13px] font-medium text-white"
+            onClick={operador ? undefined : salvar}
+            disabled={!!operador || salvando}
+            title={operador ? 'Edição em breve' : undefined}
+            className="flex-1 py-2.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: 'var(--color-accent)' }}
           >
-            {operador ? 'Salvar alterações' : 'Criar operador'}
+            {salvando ? 'Salvando…' : operador ? 'Salvar alterações' : 'Criar operador'}
           </button>
         </div>
       </div>
@@ -232,12 +273,13 @@ export default function EquipePage() {
   const [operadorEditando, setOperadorEditando] = useState<Usuario | null>(null)
   const [operadores, setOperadores] = useState<Operador[]>([])
 
-  useEffect(() => {
+  function carregarOperadores() {
     apiFetch('/api/usuarios')
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) setOperadores(d as Operador[]) })
       .catch(() => {})
-  }, [])
+  }
+  useEffect(() => { carregarOperadores() }, [])
 
   const online  = operadores.filter(o => o.status === 'ONLINE').length
   const ausente = operadores.filter(o => o.status === 'AUSENTE').length
@@ -280,7 +322,11 @@ export default function EquipePage() {
       </div>
 
       {modalAberto && (
-        <ModalOperador operador={operadorEditando} onClose={fecharModal} />
+        <ModalOperador
+          operador={operadorEditando}
+          onClose={fecharModal}
+          onSalvo={() => { fecharModal(); carregarOperadores() }}
+        />
       )}
     </AppLayout>
   )

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { mockGraficoSemana } from '@/src/mocks/dashboard'
 
 type TipoGrafico = 'linha' | 'area' | 'barras'
+
+export interface GraficoDia { dia: string; total: number; encerrados: number }
 
 // ─── Dimensões do SVG ─────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ const CH    = H - PAD_T - PAD_B
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function toPoints(data: typeof mockGraficoSemana, key: 'total' | 'encerrados', max: number) {
+function toPoints(data: GraficoDia[], key: 'total' | 'encerrados', max: number) {
   return data.map((d, i) => ({
     x: PAD_L + (i / (data.length - 1)) * CW,
     y: PAD_T + (1 - d[key] / max) * CH,
@@ -43,7 +44,7 @@ function areaPath(pts: { x: number; y: number }[]) {
 }
 
 // Gera um comentário automático baseado nos dados do dia
-function gerarComentario(d: typeof mockGraficoSemana[0], data: typeof mockGraficoSemana) {
+function gerarComentario(d: GraficoDia, data: GraficoDia[]) {
   const maxTotal = Math.max(...data.map(x => x.total))
   const minTotal = Math.min(...data.map(x => x.total))
   const avg      = data.reduce((s, x) => s + x.total, 0) / data.length
@@ -60,7 +61,7 @@ function gerarComentario(d: typeof mockGraficoSemana[0], data: typeof mockGrafic
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
-function Tooltip({ idx, data }: { idx: number; data: typeof mockGraficoSemana }) {
+function Tooltip({ idx, data }: { idx: number; data: GraficoDia[] }) {
   const d    = data[idx]
   const taxa = Math.round((d.encerrados / d.total) * 100)
   const com  = gerarComentario(d, data)
@@ -130,11 +131,12 @@ function TooltipRow({ cor, label, valor, valorCor }: { cor: string; label: strin
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export function GraficoAtendimentos({ dados }: { dados?: typeof mockGraficoSemana }) {
+export function GraficoAtendimentos({ dados }: { dados?: GraficoDia[] }) {
   const [tipo, setTipo] = useState<TipoGrafico>('linha')
   const [hovIdx, setHovIdx] = useState<number | null>(null)
 
-  const data   = dados && dados.length ? dados : mockGraficoSemana
+  // Sem fallback fake: sem dados reais, mostra estado vazio honesto
+  const data   = dados ?? []
   const maxVal = Math.max(1, ...data.map(d => d.total))
   const pTotal = toPoints(data, 'total', maxVal)
   const pEnc   = toPoints(data, 'encerrados', maxVal)
@@ -145,7 +147,23 @@ export function GraficoAtendimentos({ dados }: { dados?: typeof mockGraficoSeman
     y: PAD_T + CH - (i / ySteps) * CH,
   }))
 
-  const barW = (CW / data.length) * 0.3
+  const barW = data.length ? (CW / data.length) * 0.3 : 0
+
+  if (data.length === 0) {
+    return (
+      <div
+        className="rounded-lg p-5"
+        style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+      >
+        <h2 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--color-text)' }}>
+          Atendimentos — últimos 7 dias
+        </h2>
+        <div className="h-[160px] flex items-center justify-center text-[12px]" style={{ color: 'var(--color-text3)' }}>
+          Sem dados de atendimento ainda.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
