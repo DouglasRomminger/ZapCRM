@@ -21,7 +21,7 @@ import { obterUsuario, limparSessao, type UsuarioLogado } from '@/lib/auth'
 
 const navItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/inbox',      label: 'Inbox',       icon: MessageSquare,  badge: 5 },
+  { href: '/inbox',      label: 'Inbox',       icon: MessageSquare },
   { href: '/kanban',     label: 'Kanban',      icon: Columns2 },
   { href: '/pipeline',   label: 'Pipeline',    icon: TrendingUp },
   { href: '/contatos',   label: 'Contatos',    icon: Users },
