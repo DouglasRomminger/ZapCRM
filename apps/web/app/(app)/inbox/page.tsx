@@ -7,15 +7,7 @@ import { mockUsuarioLogado } from '@/src/mocks/usuarios'
 import type { Chat, MensagemDisplay } from '@/src/types'
 import { io } from 'socket.io-client'
 
-const API_URL    = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
-const EMPRESA_ID = process.env.NEXT_PUBLIC_DEV_EMPRESA_ID ?? 'empresa-dev-001'
-
-async function apiFetch(path: string, options?: RequestInit) {
-  return fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', 'x-empresa-id': EMPRESA_ID, ...(options?.headers ?? {}) },
-  })
-}
+import { apiFetch, API_URL, obterToken } from '@/lib/auth'
 
 // ─── Hook: lista de chats em tempo real ───────────────────────────────────────
 
@@ -35,7 +27,7 @@ function useChats() {
   useEffect(() => { buscarChats() }, [buscarChats])
 
   useEffect(() => {
-    const socket = io(API_URL, { auth: { empresaId: EMPRESA_ID } })
+    const socket = io(API_URL, { auth: { token: obterToken() } })
     socket.on('nova_mensagem', ({ chatId }: { chatId: string }) => {
       setChats(prev => prev.map(c =>
         c.id === chatId ? { ...c, totalNaoLidas: c.totalNaoLidas + 1, atualizadoEm: new Date().toISOString() } : c
@@ -356,7 +348,7 @@ function AreaMensagens({ chat }: { chat: Chat }) {
 
   // Socket.io — novas mensagens em tempo real
   useEffect(() => {
-    const socket = io(API_URL, { auth: { empresaId: EMPRESA_ID } })
+    const socket = io(API_URL, { auth: { token: obterToken() } })
     socket.on('nova_mensagem', ({ chatId, mensagem }: { chatId: string; mensagem: MensagemDisplay }) => {
       if (chatId === chat.id) setMensagens(prev => [...prev, mensagem])
     })

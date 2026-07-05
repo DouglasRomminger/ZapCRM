@@ -24,9 +24,7 @@ function Toast({ mensagem, tipo }: { mensagem: string; tipo: 'success' | 'error'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const API_URL    = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
-// TODO: substituir pelo empresaId real vindo do contexto de auth
-const EMPRESA_ID = process.env.NEXT_PUBLIC_DEV_EMPRESA_ID ?? 'empresa-dev-001'
+import { apiFetch, API_URL, obterToken } from '@/lib/auth'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -53,19 +51,6 @@ function calcularUptime(iso: string) {
   const horas = Math.floor(diff / 3600000)
   const minutos = Math.floor((diff % 3600000) / 60000)
   return { horas, minutos }
-}
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const temBody = options?.body !== undefined
-  return fetch(`${API_URL}${path}`, {
-    ...options,
-    body: options?.method === 'POST' && !temBody ? '{}' : options?.body,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-empresa-id': EMPRESA_ID,
-      ...(options?.headers ?? {}),
-    },
-  })
 }
 
 // ─── Hook: status + Socket.io ─────────────────────────────────────────────────
@@ -95,7 +80,7 @@ function useConexao() {
   // Socket.io — ouve eventos em tempo real
   useEffect(() => {
     const socket = io(API_URL, {
-      auth: { empresaId: EMPRESA_ID },
+      auth: { token: obterToken() },
       reconnectionDelay: 2000,
     })
     socketRef.current = socket
