@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { apiFetch } from '@/lib/auth'
-import { MoreHorizontal, Plus, Clock, User, MessageSquare } from 'lucide-react'
+import { MoreHorizontal, Plus, Clock, User, MessageSquare, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -186,6 +186,93 @@ function KanbanColunaView({ coluna }: { coluna: KanbanCol }) {
   )
 }
 
+// ─── Modal: nova coluna ───────────────────────────────────────────────────────
+
+const CORES_COLUNA = ['#7C3AED', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444', '#6B7280']
+
+function ModalNovaColuna({
+  tipo, onClose, onSalvo,
+}: {
+  tipo: 'ATENDIMENTO' | 'PIPELINE'
+  onClose: () => void
+  onSalvo: () => void
+}) {
+  const [nome, setNome] = useState('')
+  const [cor, setCor] = useState(CORES_COLUNA[0])
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvar() {
+    setErro(null)
+    if (!nome.trim()) { setErro('Informe o nome da coluna'); return }
+    setSalvando(true)
+    try {
+      const res = await apiFetch('/api/kanban/colunas', {
+        method: 'POST',
+        body: JSON.stringify({ nome: nome.trim(), cor, tipo }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setErro(data?.error ?? 'Erro ao salvar'); return }
+      onSalvo()
+    } catch { setErro('Falha de conexão') } finally { setSalvando(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-xl shadow-2xl" style={{ backgroundColor: 'var(--color-surface)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <p className="text-[15px] font-semibold" style={{ color: 'var(--color-text)' }}>
+            Nova coluna — {tipo === 'ATENDIMENTO' ? 'Atendimentos' : 'Pipeline'}
+          </p>
+          <button onClick={onClose} style={{ color: 'var(--color-text3)' }}><X size={18} /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--color-text2)' }}>Nome *</label>
+            <input
+              value={nome}
+              onChange={e => setNome(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') salvar() }}
+              placeholder="Ex: Pós-venda"
+              autoFocus
+              className="w-full text-[13px] px-3 py-2.5 rounded-lg outline-none"
+              style={{ border: '1.5px solid var(--color-purple-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' }}
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium block mb-1.5" style={{ color: 'var(--color-text2)' }}>Cor</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {CORES_COLUNA.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setCor(c)}
+                  className="w-7 h-7 rounded-full transition-transform hover:scale-110"
+                  style={{
+                    backgroundColor: c,
+                    border: cor === c ? '2.5px solid var(--color-text)' : '2.5px solid transparent',
+                  }}
+                  aria-label={`Cor ${c}`}
+                />
+              ))}
+            </div>
+          </div>
+          {erro && <p className="text-[12px]" style={{ color: 'var(--color-red)' }}>{erro}</p>}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-[13px] font-medium" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text2)' }}>
+            Cancelar
+          </button>
+          <button onClick={salvar} disabled={salvando} className="flex-1 py-2.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-50" style={{ backgroundColor: 'var(--color-accent)' }}>
+            {salvando ? 'Salvando…' : 'Criar coluna'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function KanbanPage() {
@@ -200,15 +287,7 @@ export default function KanbanPage() {
   }
   useEffect(() => { carregarColunas() }, [])
 
-  async function novaColuna() {
-    const nome = window.prompt('Nome da nova coluna:')
-    if (!nome) return
-    const res = await apiFetch('/api/kanban/colunas', {
-      method: 'POST',
-      body: JSON.stringify({ nome, tipo }),
-    })
-    if (res.ok) carregarColunas()
-  }
+  const [modalColuna, setModalColuna] = useState(false)
 
   const colunasDoTipo = colunas.filter(c => c.tipo === tipo)
 
@@ -239,7 +318,7 @@ export default function KanbanPage() {
           </div>
 
           <button
-            onClick={novaColuna}
+            onClick={() => setModalColuna(true)}
             className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md text-white transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--color-accent)' }}
           >
@@ -262,6 +341,14 @@ export default function KanbanPage() {
           </div>
         </div>
       </div>
+
+      {modalColuna && (
+        <ModalNovaColuna
+          tipo={tipo}
+          onClose={() => setModalColuna(false)}
+          onSalvo={() => { setModalColuna(false); carregarColunas() }}
+        />
+      )}
     </AppLayout>
   )
 }
