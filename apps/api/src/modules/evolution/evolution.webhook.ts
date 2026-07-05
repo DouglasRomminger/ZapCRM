@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../../lib/prisma'
 import { emitParaEmpresa } from '../../socket'
+import { colunaAguardandoId } from '../../lib/colunas'
 
 // ─── Tipos dos eventos Evolution API ─────────────────────────────────────────
 
@@ -135,11 +136,14 @@ async function handleMessagesUpsert(
   })
 
   if (!chat) {
+    // Novo atendimento entra na coluna "Aguardando" do kanban
+    const kanbanColunaId = await colunaAguardandoId(empresaId)
     chat = await prisma.chat.create({
       data: {
         empresaId,
         contatoId: contato.id,
         status: 'AGUARDANDO',
+        kanbanColunaId,
       },
     })
   }
