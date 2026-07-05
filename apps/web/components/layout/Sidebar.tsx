@@ -15,8 +15,9 @@ import {
   Zap,
   LogOut,
 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { mockUsuarioLogado } from '@/src/mocks/usuarios'
+import { obterUsuario, limparSessao, type UsuarioLogado } from '@/lib/auth'
 
 const navItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
@@ -32,7 +33,13 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const user = mockUsuarioLogado
+  const [user, setUser] = useState<UsuarioLogado | null>(null)
+  useEffect(() => { setUser(obterUsuario()) }, [])
+
+  function sair() {
+    limparSessao()
+    window.location.href = '/login'
+  }
 
   return (
     <aside
@@ -81,13 +88,13 @@ export function Sidebar() {
       <div className="px-3 pb-4 shrink-0 border-t border-white/10 pt-3">
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-md">
           <div className="w-7 h-7 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-white text-[11px] font-semibold shrink-0">
-            {user.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+            {(user?.nome ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('')}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-[12px] font-medium truncate">{user.nome}</p>
-            <p className="text-white/50 text-[10px] truncate capitalize">{user.role.toLowerCase()}</p>
+            <p className="text-white text-[12px] font-medium truncate">{user?.nome ?? '—'}</p>
+            <p className="text-white/50 text-[10px] truncate capitalize">{user?.role.toLowerCase() ?? ''}</p>
           </div>
-          <button className="text-white/40 hover:text-white/80 transition-colors">
+          <button onClick={sair} title="Sair" className="text-white/40 hover:text-white/80 transition-colors">
             <LogOut size={14} />
           </button>
         </div>
