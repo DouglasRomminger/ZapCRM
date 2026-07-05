@@ -16,6 +16,7 @@ import { contatosRoutes } from './modules/contatos/contatos.routes'
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes'
 import { kanbanRoutes } from './modules/kanban/kanban.routes'
 import { usuariosRoutes } from './modules/usuarios/usuarios.routes'
+import { pipelineRoutes } from './modules/pipeline/pipeline.routes'
 import { initSocket } from './socket'
 
 const PORT = Number(process.env.API_PORT ?? 3001)
@@ -60,6 +61,9 @@ async function bootstrap() {
 
   // Rotas de usuários / equipe
   await fastify.register(usuariosRoutes, { prefix: '/api' })
+
+  // Rotas do pipeline de vendas
+  await fastify.register(pipelineRoutes, { prefix: '/api' })
 
   // Health check
   fastify.get('/health', async () => ({ ok: true }))
