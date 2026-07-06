@@ -28,6 +28,7 @@ describe('leadParaContato', () => {
     categoryName: 'Padaria',
     address: 'Rua X, 123 - Blumenau',
     website: 'https://padaria.com.br',
+    instagrams: ['https://instagram.com/padariacentral'],
   }
 
   it('converte lead válido com tags de prospecção e optin false', () => {
@@ -38,6 +39,16 @@ describe('leadParaContato', () => {
     expect(c!.tags).toEqual(['prospeccao', 'padarias'])
     expect(c!.optin).toBe(false)
     expect(c!.notas).toContain('Padaria')
+  })
+
+  it('inclui o Instagram nas notas quando disponível', () => {
+    const c = leadParaContato(item, 'padarias')
+    expect(c!.notas).toContain('instagram.com/padariacentral')
+  })
+
+  it('funciona sem Instagram', () => {
+    const c = leadParaContato({ ...item, instagrams: undefined }, 'padarias')
+    expect(c!.notas).not.toContain('instagram')
   })
 
   it('descarta lead sem telefone', () => {
