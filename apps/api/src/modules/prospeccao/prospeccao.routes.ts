@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { verifyToken } from '../../lib/jwt'
 
@@ -62,6 +63,48 @@ export function leadParaContato(item: LeadApify, termo: string) {
   }
 }
 
+// true quando o lead tem site cadastrado (usado pelo filtro "só empresas sem site")
+export function leadTemSite(item: LeadApify): boolean {
+  return typeof item.website === 'string' && item.website.trim().length > 0
+}
+
+// Campos estruturados que a prospecção enriquece num Contato existente
+export interface CamposProspeccao {
+  categoria: string | null
+  endereco: string | null
+  site: string | null
+  instagram: string | null
+  googleNota: number | null
+  googleAvaliacoes: number | null
+}
+
+// Monta o patch de enriquecimento: só preenche campo do Contato existente que está
+// null/vazio com o valor novo (não-null). Nunca sobrescreve dado já preenchido.
+// Retorna objeto vazio quando não há nada a enriquecer.
+export function montarEnriquecimento(
+  existente: Partial<CamposProspeccao>,
+  novo: CamposProspeccao,
+): Partial<CamposProspeccao> {
+  const patch: Partial<CamposProspeccao> = {}
+  const vazio = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
+  if (vazio(existente.categoria) && !vazio(novo.categoria)) patch.categoria = novo.categoria
+  if (vazio(existente.endereco) && !vazio(novo.endereco)) patch.endereco = novo.endereco
+  if (vazio(existente.site) && !vazio(novo.site)) patch.site = novo.site
+  if (vazio(existente.instagram) && !vazio(novo.instagram)) patch.instagram = novo.instagram
+  if (vazio(existente.googleNota) && !vazio(novo.googleNota)) patch.googleNota = novo.googleNota
+  if (vazio(existente.googleAvaliacoes) && !vazio(novo.googleAvaliacoes)) patch.googleAvaliacoes = novo.googleAvaliacoes
+  return patch
+}
+
+// Condição "campo ainda vazio" para o updateMany atômico do enriquecimento:
+// texto casa null ou ''; numérico casa só null.
+const CAMPOS_TEXTO_PROSPECCAO = new Set(['categoria', 'endereco', 'site', 'instagram'])
+export function condicaoCampoVazio(campo: string): Prisma.ContatoWhereInput {
+  return (CAMPOS_TEXTO_PROSPECCAO.has(campo)
+    ? { OR: [{ [campo]: null }, { [campo]: '' }] }
+    : { [campo]: null }) as Prisma.ContatoWhereInput
+}
+
 // ─── Rotas ────────────────────────────────────────────────────────────────────
 
 export async function prospeccaoRoutes(fastify: FastifyInstance) {
@@ -103,37 +146,95 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
   // GET /api/prospeccao/runs/:runId — status da busca; quando concluída, importa os leads
   fastify.get('/prospeccao/runs/:runId', async (req: FastifyRequest<{
     Params: { runId: string }
-    Querystring: { datasetId?: string; termo?: string }
+    Querystring: { termo?: string; apenasSemSite?: string }
   }>, reply: FastifyReply) => {
     try {
       const empresaId = resolverEmpresaId(req)
       const { runId } = req.params
-      const { datasetId, termo = 'prospeccao' } = req.query
+      const { termo = 'prospeccao', apenasSemSite } = req.query
 
       const st = await fetch(`${APIFY_BASE}/actor-runs/${runId}?token=${apifyToken()}`)
-      const stData = (await st.json()) as { data?: { status?: string } }
+      const stData = (await st.json()) as { data?: { status?: string; defaultDatasetId?: string } }
       const status = stData.data?.status ?? 'UNKNOWN'
       if (status !== 'SUCCEEDED') return { status }
 
-      if (!datasetId) return reply.status(400).send({ error: 'datasetId ausente' })
+      // Deriva o dataset do PRÓPRIO run — nunca confia num datasetId vindo do cliente
+      // (querystring forjada poderia importar dados de outro dataset da conta Apify)
+      const datasetId = stData.data?.defaultDatasetId
+      if (!datasetId) return reply.status(502).send({ error: 'Run concluído sem dataset associado' })
       const itensRes = await fetch(`${APIFY_BASE}/datasets/${datasetId}/items?token=${apifyToken()}&clean=true`)
-      const itens = (await itensRes.json()) as LeadApify[]
+      const todosItens = (await itensRes.json()) as LeadApify[]
+
+      // Filtro "só empresas sem site" (item C): alvo de venda de presença digital
+      const soSemSite = apenasSemSite === 'true' || apenasSemSite === '1'
+      const itens = soSemSite ? todosItens.filter(i => !leadTemSite(i)) : todosItens
 
       const contatos = itens
         .map(i => leadParaContato(i, String(termo)))
         .filter((c): c is NonNullable<ReturnType<typeof leadParaContato>> => c !== null)
 
-      const r = await prisma.contato.createMany({
-        data: contatos.map(c => ({ ...c, empresaId })),
-        skipDuplicates: true,
-      })
+      // Upsert por (empresaId, telefone): cria novos e ENRIQUECE os existentes (item B).
+      // Busca os já cadastrados numa query só para evitar N+1 na decisão de criar/atualizar.
+      const telefones = contatos.map(c => c.telefone)
+      const existentes = telefones.length
+        ? await prisma.contato.findMany({
+            where: { empresaId, telefone: { in: telefones } },
+            select: {
+              telefone: true, categoria: true, endereco: true,
+              site: true, instagram: true, googleNota: true, googleAvaliacoes: true,
+            },
+          })
+        : []
+      const mapaExistente = new Map(existentes.map(e => [e.telefone, e]))
+
+      const novos = contatos.filter(c => !mapaExistente.has(c.telefone))
+      const paraEnriquecer = contatos
+        .map(c => {
+          const atual = mapaExistente.get(c.telefone)
+          if (!atual) return null
+          const patch = montarEnriquecimento(atual, c)
+          return Object.keys(patch).length ? { telefone: c.telefone, patch } : null
+        })
+        .filter((x): x is { telefone: string; patch: Partial<CamposProspeccao> } => x !== null)
+
+      // Cria os novos em bloco (skipDuplicates protege contra corrida concorrente)
+      const criacao = novos.length
+        ? await prisma.contato.createMany({
+            data: novos.map(c => ({ ...c, empresaId })),
+            skipDuplicates: true,
+          })
+        : { count: 0 }
+
+      // Enriquece os existentes em lotes pequenos para não estourar o pool do Supabase.
+      // Cada campo é atualizado individualmente e condicionado a ele AINDA estar vazio
+      // (null ou '' para texto; null para numérico): a escrita é atômica — não sobrescreve
+      // valor preenchido por requisição concorrente — sem perder os outros campos do patch.
+      let enriquecidos = 0
+      const TAMANHO_LOTE = 10
+      for (let i = 0; i < paraEnriquecer.length; i += TAMANHO_LOTE) {
+        const lote = paraEnriquecer.slice(i, i + TAMANHO_LOTE)
+        const resultados = await Promise.all(
+          lote.map(async ({ telefone, patch }) => {
+            let afetou = 0
+            for (const [campo, valor] of Object.entries(patch)) {
+              const r = await prisma.contato.updateMany({
+                where: { empresaId, telefone, ...condicaoCampoVazio(campo) },
+                data: { [campo]: valor } as Prisma.ContatoUpdateManyMutationInput,
+              })
+              afetou += r.count
+            }
+            return afetou > 0 ? 1 : 0
+          }),
+        )
+        enriquecidos += resultados.reduce<number>((s, n) => s + n, 0)
+      }
 
       return {
         status,
         encontrados: itens.length,
         comTelefone: contatos.length,
-        importados: r.count,
-        duplicados: contatos.length - r.count,
+        criados: criacao.count,
+        enriquecidos,
         leads: contatos.map(c => ({
           nome: c.nome,
           telefone: c.telefone,

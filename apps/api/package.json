@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:admin": "tsx src/scripts/cria-admin.ts",
-    "seed:colunas": "tsx src/scripts/cria-colunas.ts"
+    "seed:colunas": "tsx src/scripts/cria-colunas.ts",
+    "backfill:prospeccao": "tsx src/scripts/backfill-prospeccao.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.1.0",
