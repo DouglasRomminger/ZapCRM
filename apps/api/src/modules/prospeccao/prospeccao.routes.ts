@@ -96,6 +96,15 @@ export function montarEnriquecimento(
   return patch
 }
 
+// Condição "campo ainda vazio" para o updateMany atômico do enriquecimento:
+// texto casa null ou ''; numérico casa só null.
+const CAMPOS_TEXTO_PROSPECCAO = new Set(['categoria', 'endereco', 'site', 'instagram'])
+export function condicaoCampoVazio(campo: string): Prisma.ContatoWhereInput {
+  return (CAMPOS_TEXTO_PROSPECCAO.has(campo)
+    ? { OR: [{ [campo]: null }, { [campo]: '' }] }
+    : { [campo]: null }) as Prisma.ContatoWhereInput
+}
+
 // ─── Rotas ────────────────────────────────────────────────────────────────────
 
 export async function prospeccaoRoutes(fastify: FastifyInstance) {
@@ -197,20 +206,27 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
         : { count: 0 }
 
       // Enriquece os existentes em lotes pequenos para não estourar o pool do Supabase.
-      // updateMany condicionado aos campos AINDA nulos torna a escrita atômica: se outra
-      // requisição preencheu o campo entre a leitura e aqui, este update não o sobrescreve.
+      // Cada campo é atualizado individualmente e condicionado a ele AINDA estar vazio
+      // (null ou '' para texto; null para numérico): a escrita é atômica — não sobrescreve
+      // valor preenchido por requisição concorrente — sem perder os outros campos do patch.
       let enriquecidos = 0
       const TAMANHO_LOTE = 10
       for (let i = 0; i < paraEnriquecer.length; i += TAMANHO_LOTE) {
         const lote = paraEnriquecer.slice(i, i + TAMANHO_LOTE)
-        const counts = await Promise.all(
-          lote.map(({ telefone, patch }) => {
-            const soNulos: Prisma.ContatoWhereInput = { empresaId, telefone }
-            for (const campo of Object.keys(patch)) (soNulos as Record<string, unknown>)[campo] = null
-            return prisma.contato.updateMany({ where: soNulos, data: patch })
+        const resultados = await Promise.all(
+          lote.map(async ({ telefone, patch }) => {
+            let afetou = 0
+            for (const [campo, valor] of Object.entries(patch)) {
+              const r = await prisma.contato.updateMany({
+                where: { empresaId, telefone, ...condicaoCampoVazio(campo) },
+                data: { [campo]: valor } as Prisma.ContatoUpdateManyMutationInput,
+              })
+              afetou += r.count
+            }
+            return afetou > 0 ? 1 : 0
           }),
         )
-        enriquecidos += counts.reduce((s, r) => s + r.count, 0)
+        enriquecidos += resultados.reduce<number>((s, n) => s + n, 0)
       }
 
       return {

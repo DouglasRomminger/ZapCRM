@@ -22,6 +22,7 @@ dotenv.config({ path: resolve(process.cwd(), '../../.env') })
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { parseNotasProspeccao } from './parse-notas-prospeccao'
+import { condicaoCampoVazio } from '../modules/prospeccao/prospeccao.routes'
 
 const APLICAR = process.argv.includes('--apply')
 
@@ -92,22 +93,29 @@ async function main() {
   }
 
   // Aplica em lotes pequenos para não estourar o pool do Supabase.
-  // updateMany condicionado ao campo AINDA nulo garante que nunca sobrescreve um valor
-  // que tenha sido preenchido entre o dry-run e o apply (ou por importação concorrente).
+  // Cada campo é atualizado individualmente, condicionado a ele AINDA estar vazio
+  // (null/'' para texto, null para numérico), garantindo que nunca sobrescreve um valor
+  // preenchido entre o dry-run e o apply (ou por importação concorrente).
   console.log('\n⚙️  Aplicando updates...')
   const TAMANHO_LOTE = 10
   let gravados = 0
   let processados = 0
   for (let i = 0; i < planos.length; i += TAMANHO_LOTE) {
     const lote = planos.slice(i, i + TAMANHO_LOTE)
-    const counts = await Promise.all(
-      lote.map(({ c, patch }) => {
-        const soNulos: Prisma.ContatoWhereInput = { id: c.id }
-        for (const campo of Object.keys(patch)) (soNulos as Record<string, unknown>)[campo] = null
-        return prisma.contato.updateMany({ where: soNulos, data: patch })
+    const resultados = await Promise.all(
+      lote.map(async ({ c, patch }) => {
+        let afetou = 0
+        for (const [campo, valor] of Object.entries(patch)) {
+          const r = await prisma.contato.updateMany({
+            where: { id: c.id, ...condicaoCampoVazio(campo) },
+            data: { [campo]: valor } as Prisma.ContatoUpdateManyMutationInput,
+          })
+          afetou += r.count
+        }
+        return afetou > 0 ? 1 : 0
       }),
     )
-    gravados += counts.reduce((s, r) => s + r.count, 0)
+    gravados += resultados.reduce<number>((s, n) => s + n, 0)
     processados += lote.length
     console.log(`  ${processados}/${planos.length}`)
   }

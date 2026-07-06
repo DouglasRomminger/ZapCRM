@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarTelefoneBR, leadParaContato, leadTemSite, montarEnriquecimento } from './prospeccao.routes'
+import { normalizarTelefoneBR, leadParaContato, leadTemSite, montarEnriquecimento, condicaoCampoVazio } from './prospeccao.routes'
 
 describe('normalizarTelefoneBR', () => {
   it('mantém número já com DDI 55', () => {
@@ -114,5 +114,14 @@ describe('montarEnriquecimento (upsert enriquece só campos vazios)', () => {
   it('não preenche quando o valor novo também é null', () => {
     const patch = montarEnriquecimento({ googleNota: null }, { ...novo, googleNota: null })
     expect(patch.googleNota).toBeUndefined()
+  })
+})
+
+describe('condicaoCampoVazio (update atômico aceita null e vazio)', () => {
+  it('campo de texto casa null OU string vazia', () => {
+    expect(condicaoCampoVazio('site')).toEqual({ OR: [{ site: null }, { site: '' }] })
+  })
+  it('campo numérico casa só null', () => {
+    expect(condicaoCampoVazio('googleNota')).toEqual({ googleNota: null })
   })
 })
