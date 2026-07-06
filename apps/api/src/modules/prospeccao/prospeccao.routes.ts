@@ -40,13 +40,19 @@ export interface LeadApify {
   categoryName?: string
   website?: string
   instagrams?: string[]
+  totalScore?: number
+  reviewsCount?: number
 }
 
 // Converte um resultado do Google Maps em dados de Contato (ou null se inválido)
 export function leadParaContato(item: LeadApify, termo: string) {
   const telefone = normalizarTelefoneBR(item.phoneUnformatted ?? item.phone)
   if (!telefone || !item.title) return null
-  const notas = [item.categoryName, item.address, item.website, item.instagrams?.[0]].filter(Boolean).join(' · ')
+  const avaliacaoGoogle = item.totalScore
+    ? `⭐ ${item.totalScore}${item.reviewsCount ? ` (${item.reviewsCount} avaliações)` : ''}`
+    : null
+  const notas = [item.categoryName, avaliacaoGoogle, item.address, item.website, item.instagrams?.[0]]
+    .filter(Boolean).join(' · ')
   return {
     nome: item.title,
     telefone,
