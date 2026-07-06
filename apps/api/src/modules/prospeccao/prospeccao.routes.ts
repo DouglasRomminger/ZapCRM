@@ -39,13 +39,14 @@ export interface LeadApify {
   address?: string
   categoryName?: string
   website?: string
+  instagrams?: string[]
 }
 
 // Converte um resultado do Google Maps em dados de Contato (ou null se inválido)
 export function leadParaContato(item: LeadApify, termo: string) {
   const telefone = normalizarTelefoneBR(item.phoneUnformatted ?? item.phone)
   if (!telefone || !item.title) return null
-  const notas = [item.categoryName, item.address, item.website].filter(Boolean).join(' · ')
+  const notas = [item.categoryName, item.address, item.website, item.instagrams?.[0]].filter(Boolean).join(' · ')
   return {
     nome: item.title,
     telefone,
@@ -77,6 +78,7 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
           locationQuery: `${cidade}, Brasil`,
           maxCrawledPlacesPerSearch: qtd,
           language: 'pt-BR',
+          scrapeContacts: true, // enriquece com redes sociais do site (Instagram etc.)
         }),
       })
       if (!res.ok) {
