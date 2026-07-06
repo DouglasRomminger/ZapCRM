@@ -96,6 +96,16 @@ export function montarEnriquecimento(
   return patch
 }
 
+// Over-fetch: o Google Maps oculta telefone de muitos lugares e o filtro "sem site"
+// descarta ainda mais. Para o usuário receber perto da quantidade que pediu, varremos
+// um múltiplo dela no Apify (com teto) e importamos os válidos. Função pura p/ testar.
+const FATOR_VARREDURA = 5
+const TETO_VARREDURA = 120
+export function alvoDeVarredura(quantidadeDesejada: number): number {
+  const qtd = Math.min(Math.max(Number(quantidadeDesejada) || 20, 1), 50)
+  return Math.min(qtd * FATOR_VARREDURA, TETO_VARREDURA)
+}
+
 // Condição "campo ainda vazio" para o updateMany atômico do enriquecimento:
 // texto casa null ou ''; numérico casa só null.
 const CAMPOS_TEXTO_PROSPECCAO = new Set(['categoria', 'endereco', 'site', 'instagram'])
@@ -117,7 +127,8 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
       resolverEmpresaId(req)
       const { termo, cidade, quantidade = 20 } = req.body ?? {}
       if (!termo || !cidade) return reply.status(400).send({ error: 'Informe o termo de busca e a cidade' })
-      const qtd = Math.min(Math.max(Number(quantidade) || 20, 1), 50)
+      // Varre um múltiplo da quantidade pedida p/ compensar leads sem telefone/com site
+      const varredura = alvoDeVarredura(Number(quantidade))
 
       const res = await fetch(`${APIFY_BASE}/acts/${ACTOR}/runs?token=${apifyToken()}`, {
         method: 'POST',
@@ -125,7 +136,7 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
         body: JSON.stringify({
           searchStringsArray: [termo],
           locationQuery: `${cidade}, Brasil`,
-          maxCrawledPlacesPerSearch: qtd,
+          maxCrawledPlacesPerSearch: varredura,
           language: 'pt-BR',
           scrapeContacts: true, // enriquece com redes sociais do site (Instagram etc.)
         }),

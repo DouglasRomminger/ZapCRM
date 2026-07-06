@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarTelefoneBR, leadParaContato, leadTemSite, montarEnriquecimento, condicaoCampoVazio } from './prospeccao.routes'
+import { normalizarTelefoneBR, leadParaContato, leadTemSite, montarEnriquecimento, condicaoCampoVazio, alvoDeVarredura } from './prospeccao.routes'
+
+describe('alvoDeVarredura (over-fetch)', () => {
+  it('varre 5x a quantidade pedida', () => {
+    expect(alvoDeVarredura(20)).toBe(100)
+    expect(alvoDeVarredura(10)).toBe(50)
+  })
+  it('respeita o teto de 120', () => {
+    expect(alvoDeVarredura(50)).toBe(120)
+  })
+  it('normaliza valores inválidos/zero para o default (20 → 100)', () => {
+    expect(alvoDeVarredura(NaN)).toBe(100)
+    expect(alvoDeVarredura(0)).toBe(100)
+  })
+})
 
 describe('normalizarTelefoneBR', () => {
   it('mantém número já com DDI 55', () => {
