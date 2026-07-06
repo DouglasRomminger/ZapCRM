@@ -8,7 +8,7 @@ import { mockAvaliacoes } from '@/src/mocks/avaliacoes'
 import type { Contato, Avaliacao } from '@/src/types'
 import {
   Search, Filter, X, Phone, Mail, Tag, Star,
-  MessageSquare, ChevronRight, UserPlus, AlertTriangle,
+  MessageSquare, ChevronRight, UserPlus, AlertTriangle, Globe, AtSign,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -95,7 +95,9 @@ function ContatoRow({
           </div>
           <div>
             <p className="text-[13px] font-medium" style={{ color: 'var(--color-text)' }}>{contato.nome}</p>
-            <p className="text-[11px] truncate max-w-[460px]" style={{ color: 'var(--color-text3)' }}>{contato.email ?? contato.notas ?? '—'}</p>
+            <p className="text-[11px] truncate max-w-[460px]" style={{ color: 'var(--color-text3)' }}>
+              {[contato.categoria, contato.endereco].filter(Boolean).join(' · ') || contato.email || contato.notas || '—'}
+            </p>
           </div>
         </div>
       </td>
@@ -150,6 +152,13 @@ function ContatoRow({
             <Estrelas nota={Math.round(contato.notaMedia)} size={11} />
             <span className="text-[11px]" style={{ color: 'var(--color-text3)' }}>
               {contato.notaMedia.toFixed(1)}
+            </span>
+          </div>
+        ) : contato.googleNota != null ? (
+          <div className="flex items-center gap-1.5" title="Nota no Google">
+            <Estrelas nota={Math.round(contato.googleNota)} size={11} />
+            <span className="text-[11px]" style={{ color: 'var(--color-text3)' }}>
+              {contato.googleNota.toFixed(1)}
             </span>
           </div>
         ) : (
@@ -232,10 +241,39 @@ function DrawerContato({
             </div>
           </div>
         )}
-        {contato.notas && (
-          <div className="pt-1">
-            <p className="text-[11px] mb-1" style={{ color: 'var(--color-text3)' }}>Dados captados (Google Maps)</p>
-            <p className="text-[12px] break-words" style={{ color: 'var(--color-text)' }}>{contato.notas}</p>
+        {(contato.categoria || contato.endereco || contato.site || contato.instagram || contato.googleNota != null || contato.notas) && (
+          <div className="pt-2 space-y-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text3)' }}>Prospecção (Google Maps)</p>
+            {contato.categoria && <DrawerRow icon={Tag} label="Categoria" value={contato.categoria} />}
+            {contato.endereco && <DrawerRow icon={Tag} label="Endereço" value={contato.endereco} />}
+            {contato.googleNota != null && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2" style={{ color: 'var(--color-text2)' }}>
+                  <Star size={13} /><span className="text-[12px]">Nota Google</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Estrelas nota={Math.round(contato.googleNota)} size={12} />
+                  <span className="text-[12px] font-medium" style={{ color: 'var(--color-text)' }}>
+                    {contato.googleNota.toFixed(1)}{contato.googleAvaliacoes ? ` (${contato.googleAvaliacoes})` : ''}
+                  </span>
+                </div>
+              </div>
+            )}
+            {contato.site && (
+              <a href={contato.site.startsWith('http') ? contato.site : `https://${contato.site}`} target="_blank" rel="noopener noreferrer"
+                 className="flex items-center gap-2 text-[12px] hover:underline" style={{ color: 'var(--color-accent)' }}>
+                <Globe size={13} className="shrink-0" /> <span className="truncate">{contato.site.replace(/^https?:\/\//, '')}</span>
+              </a>
+            )}
+            {contato.instagram && (
+              <a href={contato.instagram.startsWith('http') ? contato.instagram : `https://instagram.com/${contato.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                 className="flex items-center gap-2 text-[12px] hover:underline" style={{ color: 'var(--color-accent)' }}>
+                <AtSign size={13} className="shrink-0" /> <span className="truncate">{contato.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//, '@')}</span>
+              </a>
+            )}
+            {!contato.categoria && contato.notas && (
+              <p className="text-[12px] break-words" style={{ color: 'var(--color-text)' }}>{contato.notas}</p>
+            )}
           </div>
         )}
       </div>

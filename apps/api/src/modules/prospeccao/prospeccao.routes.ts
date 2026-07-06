@@ -48,17 +48,17 @@ export interface LeadApify {
 export function leadParaContato(item: LeadApify, termo: string) {
   const telefone = normalizarTelefoneBR(item.phoneUnformatted ?? item.phone)
   if (!telefone || !item.title) return null
-  const avaliacaoGoogle = item.totalScore
-    ? `⭐ ${item.totalScore}${item.reviewsCount ? ` (${item.reviewsCount} avaliações)` : ''}`
-    : null
-  const notas = [item.categoryName, avaliacaoGoogle, item.address, item.website, item.instagrams?.[0]]
-    .filter(Boolean).join(' · ')
   return {
     nome: item.title,
     telefone,
     tags: ['prospeccao', termo.trim().toLowerCase()],
     optin: false, // lead frio: NUNCA entra em campanha de marketing (Regra Crítica #5)
-    notas: notas || null,
+    categoria: item.categoryName ?? null,
+    endereco: item.address ?? null,
+    site: item.website ?? null,
+    instagram: item.instagrams?.[0] ?? null,
+    googleNota: item.totalScore ?? null,
+    googleAvaliacoes: item.reviewsCount ?? null,
   }
 }
 
@@ -134,7 +134,11 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
         comTelefone: contatos.length,
         importados: r.count,
         duplicados: contatos.length - r.count,
-        leads: contatos.map(c => ({ nome: c.nome, telefone: c.telefone, notas: c.notas })),
+        leads: contatos.map(c => ({
+          nome: c.nome,
+          telefone: c.telefone,
+          notas: [c.categoria, c.googleNota ? `⭐ ${c.googleNota}` : null, c.site].filter(Boolean).join(' · ') || null,
+        })),
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro interno'
