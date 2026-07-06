@@ -31,6 +31,13 @@ export interface Contato {
   avatar?: string
   optin: boolean
   tags: string[]
+  notas?: string | null
+  categoria?: string | null
+  endereco?: string | null
+  site?: string | null
+  instagram?: string | null
+  googleNota?: number | null
+  googleAvaliacoes?: number | null
 }
 
 export interface Mensagem {

@@ -38,17 +38,25 @@ describe('leadParaContato', () => {
     expect(c!.telefone).toBe('5547999998888')
     expect(c!.tags).toEqual(['prospeccao', 'padarias'])
     expect(c!.optin).toBe(false)
-    expect(c!.notas).toContain('Padaria')
+    expect(c!.categoria).toBe('Padaria')
+    expect(c!.site).toBe('https://padaria.com.br')
+    expect(c!.endereco).toBe('Rua X, 123 - Blumenau')
   })
 
-  it('inclui o Instagram nas notas quando disponível', () => {
+  it('captura o Instagram quando disponível', () => {
     const c = leadParaContato(item, 'padarias')
-    expect(c!.notas).toContain('instagram.com/padariacentral')
+    expect(c!.instagram).toBe('https://instagram.com/padariacentral')
   })
 
-  it('funciona sem Instagram', () => {
+  it('instagram nulo quando ausente', () => {
     const c = leadParaContato({ ...item, instagrams: undefined }, 'padarias')
-    expect(c!.notas).not.toContain('instagram')
+    expect(c!.instagram).toBeNull()
+  })
+
+  it('captura nota e nº de avaliações do Google', () => {
+    const c = leadParaContato({ ...item, totalScore: 4.7, reviewsCount: 88 }, 'x')
+    expect(c!.googleNota).toBe(4.7)
+    expect(c!.googleAvaliacoes).toBe(88)
   })
 
   it('descarta lead sem telefone', () => {

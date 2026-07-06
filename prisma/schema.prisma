@@ -122,6 +122,14 @@ model Contato {
   criadoEm     DateTime  @default(now())
   atualizadoEm DateTime  @updatedAt
 
+  // Prospecção (Apify / Google Maps)
+  categoria        String?
+  endereco         String?
+  site             String?
+  instagram        String?
+  googleNota       Float?
+  googleAvaliacoes Int?
+
   empresa      Empresa   @relation(fields: [empresaId], references: [id])
   chats        Chat[]
   avaliacoes   Avaliacao[]
