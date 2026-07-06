@@ -71,6 +71,11 @@ describe('leadParaContato', () => {
     const c = leadParaContato({ title: 'Loja', phone: '(11) 98888-7777' }, 'lojas')
     expect(c!.telefone).toBe('5511988887777')
   })
+
+  it('adiciona tags extras (ex.: venda-site) preservando prospeccao', () => {
+    const c = leadParaContato(item, 'padarias', ['venda-site'])
+    expect(c!.tags).toEqual(['prospeccao', 'padarias', 'venda-site'])
+  })
 })
 
 describe('leadTemSite (filtro "só empresas sem site")', () => {
