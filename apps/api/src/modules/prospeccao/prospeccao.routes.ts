@@ -46,13 +46,13 @@ export interface LeadApify {
 }
 
 // Converte um resultado do Google Maps em dados de Contato (ou null se inválido)
-export function leadParaContato(item: LeadApify, termo: string) {
+export function leadParaContato(item: LeadApify, termo: string, tagsExtra: string[] = []) {
   const telefone = normalizarTelefoneBR(item.phoneUnformatted ?? item.phone)
   if (!telefone || !item.title) return null
   return {
     nome: item.title,
     telefone,
-    tags: ['prospeccao', termo.trim().toLowerCase()],
+    tags: ['prospeccao', termo.trim().toLowerCase(), ...tagsExtra],
     optin: false, // lead frio: NUNCA entra em campanha de marketing (Regra Crítica #5)
     categoria: item.categoryName ?? null,
     endereco: item.address ?? null,
@@ -169,8 +169,11 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
       const soSemSite = apenasSemSite === 'true' || apenasSemSite === '1'
       const itens = soSemSite ? todosItens.filter(i => !leadTemSite(i)) : todosItens
 
+      // Busca sem-site = alvo de venda de site: marca o lead com a tag 'venda-site'
+      // para separá-lo dos demais (segmento próprio na tela de Contatos).
+      const tagsExtra = soSemSite ? ['venda-site'] : []
       const contatos = itens
-        .map(i => leadParaContato(i, String(termo)))
+        .map(i => leadParaContato(i, String(termo), tagsExtra))
         .filter((c): c is NonNullable<ReturnType<typeof leadParaContato>> => c !== null)
 
       // Upsert por (empresaId, telefone): cria novos e ENRIQUECE os existentes (item B).

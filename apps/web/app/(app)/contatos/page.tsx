@@ -413,6 +413,7 @@ export default function ContatosPage() {
   const [busca, setBusca] = useState('')
   const [filtroOptin, setFiltroOptin] = useState<'todos' | 'ativo' | 'inativo'>('todos')
   const [filtroTag, setFiltroTag] = useState('')
+  const [segmento, setSegmento] = useState<'todos' | 'venda-site' | 'prospeccao'>('todos')
   const [contatoSelecionado, setContatoSelecionado] = useState<ReturnType<typeof enriquecerContato> | null>(null)
   const [contatosReais, setContatosReais] = useState<ReturnType<typeof enriquecerContato>[]>([])
   const [modalNovo, setModalNovo] = useState(false)
@@ -431,6 +432,8 @@ export default function ContatosPage() {
       if (filtroOptin === 'ativo' && !c.optin) return false
       if (filtroOptin === 'inativo' && c.optin) return false
       if (filtroTag && !c.tags.includes(filtroTag)) return false
+      if (segmento === 'venda-site' && !c.tags.includes('venda-site')) return false
+      if (segmento === 'prospeccao' && !c.tags.includes('prospeccao')) return false
       return true
     })
 
@@ -439,6 +442,34 @@ export default function ContatosPage() {
   return (
     <AppLayout title="Contatos" subtitle="CRM de contatos e clientes">
       <div className="p-6">
+        {/* Abas de segmento — separa leads de venda de site dos demais */}
+        <div className="flex items-center gap-2 mb-4">
+          {([
+            { id: 'todos', label: 'Todos' },
+            { id: 'venda-site', label: 'Venda de Site' },
+            { id: 'prospeccao', label: 'Prospecção' },
+          ] as const).map(s => {
+            const ativo = segmento === s.id
+            const qtd = s.id === 'todos'
+              ? contatosReais.length
+              : contatosReais.filter(c => c.tags.includes(s.id)).length
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSegmento(s.id)}
+                className="text-[12px] font-medium px-3.5 py-1.5 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: ativo ? 'var(--color-accent)' : 'var(--color-surface)',
+                  color: ativo ? '#fff' : 'var(--color-text2)',
+                  border: `1px solid ${ativo ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                }}
+              >
+                {s.label} <span style={{ opacity: 0.65 }}>{qtd}</span>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Barra de ações */}
         <div className="flex items-center gap-3 mb-5">
           <div
