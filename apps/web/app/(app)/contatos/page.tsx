@@ -19,7 +19,10 @@ function iniciais(nome: string) {
 }
 
 function formatarTelefone(t: string) {
-  return t.replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4')
+  const d = t.replace(/\D/g, '')
+  if (d.length === 13) return d.replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4') // celular
+  if (d.length === 12) return d.replace(/(\d{2})(\d{2})(\d{4})(\d{4})/, '+$1 ($2) $3-$4') // fixo
+  return t
 }
 
 function tempoRelativo(iso: string) {
@@ -92,7 +95,7 @@ function ContatoRow({
           </div>
           <div>
             <p className="text-[13px] font-medium" style={{ color: 'var(--color-text)' }}>{contato.nome}</p>
-            <p className="text-[11px]" style={{ color: 'var(--color-text3)' }}>{contato.email ?? '—'}</p>
+            <p className="text-[11px] truncate max-w-[460px]" style={{ color: 'var(--color-text3)' }}>{contato.email ?? contato.notas ?? '—'}</p>
           </div>
         </div>
       </td>
@@ -227,6 +230,12 @@ function DrawerContato({
                 {contato.notaMedia.toFixed(1)}
               </span>
             </div>
+          </div>
+        )}
+        {contato.notas && (
+          <div className="pt-1">
+            <p className="text-[11px] mb-1" style={{ color: 'var(--color-text3)' }}>Dados captados (Google Maps)</p>
+            <p className="text-[12px] break-words" style={{ color: 'var(--color-text)' }}>{contato.notas}</p>
           </div>
         )}
       </div>
