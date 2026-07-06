@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { verifyToken } from '../../lib/jwt'
 
@@ -136,19 +137,22 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
   // GET /api/prospeccao/runs/:runId — status da busca; quando concluída, importa os leads
   fastify.get('/prospeccao/runs/:runId', async (req: FastifyRequest<{
     Params: { runId: string }
-    Querystring: { datasetId?: string; termo?: string; apenasSemSite?: string }
+    Querystring: { termo?: string; apenasSemSite?: string }
   }>, reply: FastifyReply) => {
     try {
       const empresaId = resolverEmpresaId(req)
       const { runId } = req.params
-      const { datasetId, termo = 'prospeccao', apenasSemSite } = req.query
+      const { termo = 'prospeccao', apenasSemSite } = req.query
 
       const st = await fetch(`${APIFY_BASE}/actor-runs/${runId}?token=${apifyToken()}`)
-      const stData = (await st.json()) as { data?: { status?: string } }
+      const stData = (await st.json()) as { data?: { status?: string; defaultDatasetId?: string } }
       const status = stData.data?.status ?? 'UNKNOWN'
       if (status !== 'SUCCEEDED') return { status }
 
-      if (!datasetId) return reply.status(400).send({ error: 'datasetId ausente' })
+      // Deriva o dataset do PRÓPRIO run — nunca confia num datasetId vindo do cliente
+      // (querystring forjada poderia importar dados de outro dataset da conta Apify)
+      const datasetId = stData.data?.defaultDatasetId
+      if (!datasetId) return reply.status(502).send({ error: 'Run concluído sem dataset associado' })
       const itensRes = await fetch(`${APIFY_BASE}/datasets/${datasetId}/items?token=${apifyToken()}&clean=true`)
       const todosItens = (await itensRes.json()) as LeadApify[]
 
@@ -192,20 +196,21 @@ export async function prospeccaoRoutes(fastify: FastifyInstance) {
           })
         : { count: 0 }
 
-      // Enriquece os existentes em lotes pequenos para não estourar o pool do Supabase
+      // Enriquece os existentes em lotes pequenos para não estourar o pool do Supabase.
+      // updateMany condicionado aos campos AINDA nulos torna a escrita atômica: se outra
+      // requisição preencheu o campo entre a leitura e aqui, este update não o sobrescreve.
       let enriquecidos = 0
       const TAMANHO_LOTE = 10
       for (let i = 0; i < paraEnriquecer.length; i += TAMANHO_LOTE) {
         const lote = paraEnriquecer.slice(i, i + TAMANHO_LOTE)
-        await Promise.all(
-          lote.map(({ telefone, patch }) =>
-            prisma.contato.update({
-              where: { empresaId_telefone: { empresaId, telefone } },
-              data: patch,
-            }),
-          ),
+        const counts = await Promise.all(
+          lote.map(({ telefone, patch }) => {
+            const soNulos: Prisma.ContatoWhereInput = { empresaId, telefone }
+            for (const campo of Object.keys(patch)) (soNulos as Record<string, unknown>)[campo] = null
+            return prisma.contato.updateMany({ where: soNulos, data: patch })
+          }),
         )
-        enriquecidos += lote.length
+        enriquecidos += counts.reduce((s, r) => s + r.count, 0)
       }
 
       return {

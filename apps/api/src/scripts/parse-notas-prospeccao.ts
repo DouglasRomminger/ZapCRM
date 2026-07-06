@@ -15,11 +15,13 @@ export interface NotasParse {
   endereco: string | null
 }
 
-// Token parece uma URL/domínio (site)
+// Token parece uma URL/domínio (site). Exclui e-mails (contato@x.com viraria "site").
 function ehUrl(t: string): boolean {
+  if (t.includes('@')) return false
   if (/^https?:\/\//i.test(t)) return true
   if (/^www\./i.test(t)) return true
-  return /\b[a-z0-9-]+\.(com|br|net|org|io|me|co|app|info|biz|dev|shop)\b/i.test(t)
+  // domínio.tld genérico (2+ letras no TLD): cobre .com, .com.br, .ai, .digital, .store, etc.
+  return /\b[a-z0-9-]+\.[a-z]{2,}(\.[a-z]{2,})?(\/|$)/i.test(t)
 }
 
 // Token parece um endereço (logradouro ou "algo com número e vírgula")

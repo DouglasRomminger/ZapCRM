@@ -27,6 +27,17 @@ describe('parseNotasProspeccao', () => {
     expect(parseNotasProspeccao('Bar · ⭐ 4,7').googleNota).toBe(4.7)
   })
 
+  it('NÃO classifica e-mail como site', () => {
+    const r = parseNotasProspeccao('Consultório · contato@clinica.com.br')
+    expect(r.site).toBeNull()
+    expect(r.categoria).toBe('Consultório')
+  })
+
+  it('aceita TLDs modernos (.digital, .ai)', () => {
+    expect(parseNotasProspeccao('Agência · agencia.digital').site).toBe('agencia.digital')
+    expect(parseNotasProspeccao('Startup · nome.ai').site).toBe('nome.ai')
+  })
+
   it('só categoria (um token textual)', () => {
     const r = parseNotasProspeccao('Restaurante')
     expect(r.categoria).toBe('Restaurante')

@@ -46,8 +46,8 @@ export default function ProspeccaoPage() {
       const data = await res.json()
       if (!res.ok) { setErro(data?.error ?? 'Erro ao iniciar a busca'); setFase('erro'); return }
 
-      const { runId, datasetId } = data as { runId: string; datasetId: string }
-      const url = `/api/prospeccao/runs/${runId}?datasetId=${datasetId}&termo=${encodeURIComponent(termo.trim())}${apenasSemSite ? '&apenasSemSite=true' : ''}`
+      const { runId } = data as { runId: string }
+      const url = `/api/prospeccao/runs/${runId}?termo=${encodeURIComponent(termo.trim())}${apenasSemSite ? '&apenasSemSite=true' : ''}`
 
       pollRef.current = setInterval(async () => {
         try {
