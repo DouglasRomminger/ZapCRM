@@ -87,13 +87,20 @@ export interface SetWebhookParams {
 }
 
 export async function setWebhook({ instanceName, webhookUrl }: SetWebhookParams): Promise<void> {
+  // Evolution API v2: payload aninhado em `webhook` com `enabled:true`.
+  // `headers.apikey` faz a Evolution enviar NOSSA chave global no header de todo webhook —
+  // sem isso ela manda a apikey própria da instância e a validação de entrada recusa (401).
   await request(`/webhook/set/${instanceName}`, {
     method: 'POST',
     body: JSON.stringify({
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: true,
-      events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        byEvents: false,
+        base64: true,
+        headers: { apikey: API_KEY },
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+      },
     }),
   })
 }

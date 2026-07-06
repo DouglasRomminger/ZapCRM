@@ -6,6 +6,7 @@ import {
   getConnectionState,
   getQrCode,
   logoutInstance,
+  setWebhook,
 } from './evolution.client'
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -101,6 +102,16 @@ export async function evolutionRoutes(fastify: FastifyInstance) {
         // Instância já existe — apenas busca o QR
         const msg = err instanceof Error ? err.message : ''
         if (!msg.includes('already')) throw err
+      }
+
+      // Reforça o webhook via /webhook/set com enabled:true + headers.apikey (chave global).
+      // Necessário SEMPRE (mesmo quando a instância já existia): o webhook aninhado no
+      // create não ativa o header, e sem ele a Evolution manda a apikey própria da
+      // instância e o /webhook/evolution recusa (401). Não bloqueia o QR se falhar.
+      try {
+        await setWebhook({ instanceName, webhookUrl })
+      } catch (err: unknown) {
+        req.log.warn({ err, instanceName }, 'falha ao configurar webhook da instância')
       }
 
       // Salva instanciaId no banco
