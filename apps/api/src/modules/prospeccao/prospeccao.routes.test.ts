@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarTelefoneBR, leadParaContato } from './prospeccao.routes'
+import { normalizarTelefoneBR, leadParaContato, leadTemSite, montarEnriquecimento } from './prospeccao.routes'
 
 describe('normalizarTelefoneBR', () => {
   it('mantém número já com DDI 55', () => {
@@ -70,5 +70,49 @@ describe('leadParaContato', () => {
   it('usa phone como fallback do phoneUnformatted', () => {
     const c = leadParaContato({ title: 'Loja', phone: '(11) 98888-7777' }, 'lojas')
     expect(c!.telefone).toBe('5511988887777')
+  })
+})
+
+describe('leadTemSite (filtro "só empresas sem site")', () => {
+  it('true quando há website', () => {
+    expect(leadTemSite({ website: 'https://x.com' })).toBe(true)
+  })
+  it('false quando website ausente, nulo ou vazio', () => {
+    expect(leadTemSite({})).toBe(false)
+    expect(leadTemSite({ website: undefined })).toBe(false)
+    expect(leadTemSite({ website: '   ' })).toBe(false)
+  })
+})
+
+describe('montarEnriquecimento (upsert enriquece só campos vazios)', () => {
+  const novo = {
+    categoria: 'Padaria', endereco: 'Rua X, 123', site: 'https://p.com',
+    instagram: 'https://instagram.com/p', googleNota: 4.5, googleAvaliacoes: 30,
+  }
+
+  it('preenche campo antes null com o valor novo', () => {
+    const patch = montarEnriquecimento({ site: null }, novo)
+    expect(patch.site).toBe('https://p.com')
+  })
+
+  it('NÃO sobrescreve campo já preenchido', () => {
+    const patch = montarEnriquecimento({ site: 'https://existente.com', categoria: 'Antiga' }, novo)
+    expect(patch.site).toBeUndefined()
+    expect(patch.categoria).toBeUndefined()
+  })
+
+  it('trata string vazia como vazio e preenche', () => {
+    const patch = montarEnriquecimento({ categoria: '   ' }, novo)
+    expect(patch.categoria).toBe('Padaria')
+  })
+
+  it('retorna patch vazio quando não há nada a enriquecer', () => {
+    const cheio = { ...novo }
+    expect(montarEnriquecimento(cheio, novo)).toEqual({})
+  })
+
+  it('não preenche quando o valor novo também é null', () => {
+    const patch = montarEnriquecimento({ googleNota: null }, { ...novo, googleNota: null })
+    expect(patch.googleNota).toBeUndefined()
   })
 })

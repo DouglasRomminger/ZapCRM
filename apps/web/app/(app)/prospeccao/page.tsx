@@ -12,8 +12,8 @@ interface Resultado {
   status: string
   encontrados: number
   comTelefone: number
-  importados: number
-  duplicados: number
+  criados: number
+  enriquecidos: number
   leads: LeadImportado[]
 }
 
@@ -25,6 +25,7 @@ export default function ProspeccaoPage() {
   const [termo, setTermo] = useState('')
   const [cidade, setCidade] = useState('')
   const [quantidade, setQuantidade] = useState(20)
+  const [apenasSemSite, setApenasSemSite] = useState(false)
   const [fase, setFase] = useState<Fase>('idle')
   const [erro, setErro] = useState<string | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
@@ -46,7 +47,7 @@ export default function ProspeccaoPage() {
       if (!res.ok) { setErro(data?.error ?? 'Erro ao iniciar a busca'); setFase('erro'); return }
 
       const { runId, datasetId } = data as { runId: string; datasetId: string }
-      const url = `/api/prospeccao/runs/${runId}?datasetId=${datasetId}&termo=${encodeURIComponent(termo.trim())}`
+      const url = `/api/prospeccao/runs/${runId}?datasetId=${datasetId}&termo=${encodeURIComponent(termo.trim())}${apenasSemSite ? '&apenasSemSite=true' : ''}`
 
       pollRef.current = setInterval(async () => {
         try {
@@ -139,6 +140,20 @@ export default function ProspeccaoPage() {
             </div>
           </div>
 
+          <label className="flex items-center gap-2 cursor-pointer w-fit select-none">
+            <input
+              type="checkbox"
+              checked={apenasSemSite}
+              onChange={e => setApenasSemSite(e.target.checked)}
+              disabled={fase === 'buscando'}
+              className="w-4 h-4 rounded cursor-pointer"
+              style={{ accentColor: 'var(--color-accent)' }}
+            />
+            <span className="text-[12px]" style={{ color: 'var(--color-text2)' }}>
+              Somente empresas <strong>sem site</strong> (alvo para venda de presença digital)
+            </span>
+          </label>
+
           <div className="flex items-center gap-3">
             <button
               onClick={buscar}
@@ -177,8 +192,8 @@ export default function ProspeccaoPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatBox label="Encontrados" valor={resultado.encontrados} cor="var(--color-blue)" bg="var(--color-blue-bg)" />
               <StatBox label="Com telefone" valor={resultado.comTelefone} cor="var(--color-accent)" bg="var(--color-purple-light)" />
-              <StatBox label="Importados" valor={resultado.importados} cor="var(--color-green)" bg="var(--color-green-bg)" />
-              <StatBox label="Já existiam" valor={resultado.duplicados} cor="var(--color-amber)" bg="var(--color-amber-bg)" />
+              <StatBox label="Novos" valor={resultado.criados} cor="var(--color-green)" bg="var(--color-green-bg)" />
+              <StatBox label="Enriquecidos" valor={resultado.enriquecidos} cor="var(--color-amber)" bg="var(--color-amber-bg)" />
             </div>
 
             {resultado.leads.length > 0 && (
